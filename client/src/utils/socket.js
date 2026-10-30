@@ -4,7 +4,8 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io({
+    const socketUrl = import.meta.env.VITE_API_URL || undefined;
+    socket = io(socketUrl, {
       autoConnect: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000

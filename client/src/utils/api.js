@@ -1,23 +1,39 @@
 // API helper for RecuerdAppMe
 
-const BASE_URL = ''; // Relative URLs will be proxied by Vite in dev and served by Express in prod
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+export function getFullMediaUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+export function formatMediaItem(item) {
+  if (!item) return item;
+  return {
+    ...item,
+    url: getFullMediaUrl(item.url)
+  };
+}
 
 export async function fetchEvent(slug) {
-  const res = await fetch(`/api/events/${slug}`);
+  const res = await fetch(`${API_BASE}/api/events/${slug}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al cargar el evento');
   return data.event;
 }
 
 export async function fetchAllEvents() {
-  const res = await fetch('/api/events');
+  const res = await fetch(`${API_BASE}/api/events`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al cargar eventos');
   return data.events || [];
 }
 
 export async function createEvent(eventData) {
-  const res = await fetch('/api/events', {
+  const res = await fetch(`${API_BASE}/api/events`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(eventData)
@@ -28,7 +44,7 @@ export async function createEvent(eventData) {
 }
 
 export async function updateEvent(slug, updates, passcode) {
-  const res = await fetch(`/api/events/${slug}`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...updates, passcode })
@@ -39,7 +55,7 @@ export async function updateEvent(slug, updates, passcode) {
 }
 
 export async function verifyMasterPasscode(masterPasscode) {
-  const res = await fetch('/api/events/master/verify', {
+  const res = await fetch(`${API_BASE}/api/events/master/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ masterPasscode })
@@ -50,7 +66,7 @@ export async function verifyMasterPasscode(masterPasscode) {
 }
 
 export async function updateMasterPasscode(currentPasscode, newPasscode) {
-  const res = await fetch('/api/events/master/passcode', {
+  const res = await fetch(`${API_BASE}/api/events/master/passcode`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentPasscode, newPasscode })
@@ -61,7 +77,7 @@ export async function updateMasterPasscode(currentPasscode, newPasscode) {
 }
 
 export async function deleteEvent(slug, masterPasscode) {
-  const res = await fetch(`/api/events/${slug}`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ masterPasscode })
@@ -72,7 +88,7 @@ export async function deleteEvent(slug, masterPasscode) {
 }
 
 export async function verifyHostPasscode(slug, passcode) {
-  const res = await fetch(`/api/events/${slug}/verify-passcode`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/verify-passcode`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ passcode })
@@ -83,18 +99,18 @@ export async function verifyHostPasscode(slug, passcode) {
 }
 
 export async function fetchEventStats(slug) {
-  const res = await fetch(`/api/events/${slug}/stats`);
+  const res = await fetch(`${API_BASE}/api/events/${slug}/stats`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al obtener estadísticas');
   return data.stats;
 }
 
 export async function fetchEventMedia(slug, isAdmin = false) {
-  const url = isAdmin ? `/api/events/${slug}/media?admin=true` : `/api/events/${slug}/media`;
-  const res = await fetch(url);
+  const endpoint = isAdmin ? `/api/events/${slug}/media?admin=true` : `/api/events/${slug}/media`;
+  const res = await fetch(`${API_BASE}${endpoint}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al cargar archivos');
-  return data.media || [];
+  return (data.media || []).map(formatMediaItem);
 }
 
 export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress) {
@@ -108,7 +124,7 @@ export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress)
     formData.append('uploaderName', uploaderName || '');
     formData.append('caption', caption || '');
 
-    xhr.open('POST', `/api/events/${slug}/media/upload`);
+    xhr.open('POST', `${API_BASE}/api/events/${slug}/media/upload`);
 
     if (xhr.upload && onProgress) {
       xhr.upload.onprogress = (e) => {
@@ -123,7 +139,10 @@ export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress)
       try {
         const response = JSON.parse(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(response);
+          resolve({
+            ...response,
+            items: (response.items || []).map(formatMediaItem)
+          });
         } else {
           reject(new Error(response.error || 'Error al subir archivos'));
         }
@@ -138,7 +157,7 @@ export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress)
 }
 
 export async function likeMediaItem(slug, mediaId) {
-  const res = await fetch(`/api/events/${slug}/media/${mediaId}/like`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/media/${mediaId}/like`, {
     method: 'POST'
   });
   const data = await res.json();
@@ -147,18 +166,18 @@ export async function likeMediaItem(slug, mediaId) {
 }
 
 export async function updateMediaStatus(slug, mediaId, status, passcode) {
-  const res = await fetch(`/api/events/${slug}/media/${mediaId}/status`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/media/${mediaId}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, passcode })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Error al cambiar estado');
-  return data.item;
+  return formatMediaItem(data.item);
 }
 
 export async function deleteMediaItem(slug, mediaId, passcode) {
-  const res = await fetch(`/api/events/${slug}/media/${mediaId}`, {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/media/${mediaId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ passcode })
@@ -169,5 +188,5 @@ export async function deleteMediaItem(slug, mediaId, passcode) {
 }
 
 export function getDownloadZipUrl(slug) {
-  return `/api/download/${slug}/download-all`;
+  return `${API_BASE}/api/download/${slug}/download-all`;
 }

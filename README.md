@@ -93,6 +93,45 @@ Esto iniciará:
 - **Backend API & WebSockets**: [http://localhost:4000](http://localhost:4000)
 - **Frontend Web**: [http://localhost:3000](http://localhost:3000)
 
+---
+
+## ☁️ Guía de Despliegue en la Nube (100% Gratis)
+
+RecuerdAppMe está preparado para desplegarse sin costo. Puedes desplegarlo **Todo-en-Uno en Render.com (1 solo servicio)** o de forma híbrida (Vercel + Render):
+* **Frontend en Vercel (Hobby Free)**: Carga ultrarrápida, CDN global y certificado SSL gratis.
+* **Backend en Render.com (Web Service Free)**: Servidor Node.js continuo con soporte nativo para **Socket.IO** en tiempo real.
+* **Respaldo en tu Google Drive (5 TB)**: Para archivar de forma permanente todas las fotos y videos del evento en su máxima resolución.
+
+### 🌟 Opción 1: Todo-en-Uno en Render (La Más Sencilla)
+1. Conecta tu repositorio de GitHub en [Render Dashboard](https://dashboard.render.com) > **New + > Web Service**.
+2. Deja el **Root Directory** vacío (raíz).
+3. **Build Command**: `npm run build`
+4. **Start Command**: `npm start`
+5. En **Environment Variables**: `MASTER_PASSCODE=admin2026`.
+6. ¡Listo! Render compila el frontend de React y el servidor Express sirve la web completa y los WebSockets en una sola URL.
+
+---
+
+### ⚡ Opción 2: Híbrido Vercel (Frontend) + Render (Backend)
+- **Backend en Render**: Root Directory: `server`, Start Command: `npm start`.
+- **Frontend en Vercel**: Root Directory: `client`, Environment Variable `VITE_API_URL` con el link de Render.
+
+---
+
+## 💾 Respaldo y Archivo en tu Google Drive (5 TB)
+
+Para conservar todas las fotos y videos originales en tu almacenamiento de Google Drive sin saturar el servidor:
+
+1. **Desde el Panel de Anfitrión (`#/e/:slug/admin`)**:
+   * Al finalizar la fiesta o al día siguiente, haz clic en el botón **Descargar Álbum (ZIP)**.
+   * La app empaqueta en un solo archivo `.zip` comprimido:
+     - Todas las fotos y videos originales subidos por los invitados.
+     - Cada archivo renombrado con el autor (ej. `Familia_Gomez_foto.jpg`).
+     - El archivo `DEDICATORIAS_DE_INVITADOS.txt` con todos los mensajes y fechas.
+     - El archivo `recuerdos_metadata.json` con todos los datos y me gusta.
+2. **Subida a tu Google Drive**:
+   * Arrastra el archivo `.zip` o la carpeta descomprimida a tu Google Drive (o carpeta compartida del evento) y dispondrás de todos los recuerdos en tus 5 TB con la máxima calidad original para siempre.
+
 ### 2. Acceso a las Pantallas
 - **Página de Inicio / Crear Eventos**: `http://localhost:3000/#/`
 - **Vista de Invitados (Joaco 18 años)**: `http://localhost:3000/#/e/joaco-18-anos`

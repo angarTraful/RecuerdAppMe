@@ -3,6 +3,7 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 import eventsRouter from './routes/events.js';
@@ -40,10 +41,32 @@ app.use('/api/events', eventsRouter);
 app.use('/api/events/:slug/media', mediaRouter);
 app.use('/api/download', downloadRouter);
 
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString(), app: 'RecuerdAppMe Server' });
 });
+
+// Serve frontend static build if built together (All-in-One deployment on Render)
+const CLIENT_DIST = path.join(__dirname, '..', '..', 'client', 'dist');
+if (fs.existsSync(CLIENT_DIST)) {
+  app.use(express.static(CLIENT_DIST));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+  });
+} else {
+  // Standalone backend root status (when frontend is deployed separately on Vercel)
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'ok',
+      message: 'RecuerdAppMe Backend Server is running',
+      version: '1.0.0',
+      health: '/api/health'
+    });
+  });
+}
 
 // Socket.IO event handling
 io.on('connection', (socket) => {

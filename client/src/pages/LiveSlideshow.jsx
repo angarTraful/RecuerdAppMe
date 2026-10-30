@@ -6,7 +6,7 @@ import {
   QrCode, Volume2, VolumeX, Sparkles, Settings, X, ArrowLeft,
   Crown, Heart, BellRing, BellOff, Cake
 } from 'lucide-react';
-import { fetchEvent, fetchEventMedia } from '../utils/api';
+import { fetchEvent, fetchEventMedia, formatMediaItem } from '../utils/api';
 import { getSocket, joinEventRoom, leaveEventRoom } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
 import { playCameraShutterSound, playCelebrationChime, playPopSound } from '../utils/audio';
@@ -109,7 +109,8 @@ export default function LiveSlideshow({ slug, onExit }) {
     // 1. New media uploaded by a guest
     const handleNewMedia = (payload) => {
       if (payload && payload.items) {
-        const approvedOnly = payload.items.filter((i) => i.status === 'approved');
+        const formatted = payload.items.map(formatMediaItem);
+        const approvedOnly = formatted.filter((i) => i.status === 'approved');
         if (approvedOnly.length > 0) {
           const firstNew = approvedOnly[0];
 

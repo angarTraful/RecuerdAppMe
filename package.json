@@ -4,6 +4,8 @@
   "description": "App de galería de fotos y videos para eventos con QR, personalización de temas y modo proyector en vivo.",
   "private": true,
   "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
+    "start": "node server/src/index.js",
     "server": "npm --prefix server run dev",
     "client": "npm --prefix client run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",

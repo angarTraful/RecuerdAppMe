@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Calendar, Sparkles, Heart, Share2, Tv, QrCode, User, Edit2, ShieldCheck, Lock } from 'lucide-react';
-import { fetchEvent, fetchEventMedia } from '../utils/api';
+import { fetchEvent, fetchEventMedia, formatMediaItem } from '../utils/api';
 import { getSocket, joinEventRoom, leaveEventRoom } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
 import MediaUploader from '../components/MediaUploader';
@@ -57,9 +57,10 @@ export default function GuestUpload({ slug, isEventAdmin = false, onOpenLive, on
 
     const handleNewMedia = (payload) => {
       if (payload && payload.items) {
+        const formatted = payload.items.map(formatMediaItem);
         setMedia((prev) => {
           // Avoid duplicates
-          const newItems = payload.items.filter((item) => !prev.some((m) => m.id === item.id));
+          const newItems = formatted.filter((item) => !prev.some((m) => m.id === item.id));
           return [...newItems, ...prev];
         });
       }
