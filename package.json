@@ -1,0 +1,15 @@
+{
+  "name": "recuerdappme",
+  "version": "1.0.0",
+  "description": "App de galería de fotos y videos para eventos con QR, personalización de temas y modo proyector en vivo.",
+  "private": true,
+  "scripts": {
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
