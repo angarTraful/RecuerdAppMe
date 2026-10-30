@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, Lock, Palette, Image as ImageIcon, Download, Settings,
   QrCode, Trash2, Eye, EyeOff, CheckCircle, RefreshCw, BarChart3, Users, Film,
-  Radio, Sparkles, Play, Pause, SkipForward, SkipBack, Cake, Send
+  Radio, Sparkles, Play, Pause, SkipForward, SkipBack, Cake, Send, LogOut, KeyRound
 } from 'lucide-react';
 import {
   fetchEvent, fetchEventMedia, fetchEventStats, updateEvent,
@@ -12,12 +12,19 @@ import { emitRemoteControl } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
 import ThemeCustomizer from '../components/ThemeCustomizer';
 
-export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
+export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange }) {
   const { applyTheme } = useTheme();
   const [event, setEvent] = useState(null);
   const [passcode, setPasscode] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(() => {
-    return sessionStorage.getItem(`host_auth_${slug}`) === 'true';
+    return (
+      sessionStorage.getItem(`host_auth_${slug}`) === 'true' ||
+      sessionStorage.getItem('superadmin_auth') === 'true'
+    );
+  });
+  const [role, setRole] = useState(() => {
+    if (sessionStorage.getItem('superadmin_auth') === 'true') return 'superadmin';
+    return sessionStorage.getItem(`host_role_${slug}`) || 'host';
   });
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState('remote'); // remote, theme, moderation, settings
@@ -27,6 +34,12 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [liveGreetingText, setLiveGreetingText] = useState('');
+
+  // Editable passcodes in Settings
+  const [newHostPin, setNewHostPin] = useState('');
+  const [newModeratorPin, setNewModeratorPin] = useState('');
+
+  const isFullHost = role === 'host' || role === 'superadmin';
 
   useEffect(() => {
     loadDashboard();
@@ -41,6 +54,21 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
       if (evtData.theme) applyTheme(evtData.theme);
 
       if (isAuthorized) {
+        const storedPass = getStoredPasscode();
+        if (storedPass) {
+          try {
+            const authInfo = await verifyHostPasscode(slug, storedPass);
+            if (authInfo && authInfo.event) {
+              setEvent(authInfo.event);
+              setRole(authInfo.role || 'host');
+              setNewHostPin(authInfo.event.hostPasscode || '');
+              setNewModeratorPin(authInfo.event.moderatorPasscode || '');
+            }
+          } catch (e) {
+            // Ignore if offline or fallback
+          }
+        }
+
         const [statsData, mediaData] = await Promise.all([
           fetchEventStats(slug),
           fetchEventMedia(slug, true)
@@ -76,19 +104,47 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
     e.preventDefault();
     setAuthError('');
     try {
-      const authorized = await verifyHostPasscode(slug, passcode);
-      if (authorized) {
+      const result = await verifyHostPasscode(slug, passcode);
+      if (result && result.authorized) {
+        const userRole = result.role || 'host';
         setIsAuthorized(true);
+        setRole(userRole);
         sessionStorage.setItem(`host_auth_${slug}`, 'true');
         sessionStorage.setItem(`host_pass_${slug}`, passcode);
+        sessionStorage.setItem(`host_role_${slug}`, userRole);
+        if (userRole === 'superadmin') {
+          sessionStorage.setItem('superadmin_auth', 'true');
+          sessionStorage.setItem('superadmin_pass', passcode);
+        }
+        if (result.event) {
+          setEvent(result.event);
+          setNewHostPin(result.event.hostPasscode || '');
+          setNewModeratorPin(result.event.moderatorPasscode || '');
+        }
+        if (onAuthChange) onAuthChange();
       }
     } catch (err) {
       setAuthError(err.message || 'Código incorrecto');
     }
   };
 
+  const handleLogout = () => {
+    sessionStorage.removeItem(`host_auth_${slug}`);
+    sessionStorage.removeItem(`host_pass_${slug}`);
+    sessionStorage.removeItem(`host_role_${slug}`);
+    setIsAuthorized(false);
+    setPasscode('');
+    if (onAuthChange) onAuthChange();
+    window.location.hash = `#/e/${slug}`;
+  };
+
   const getStoredPasscode = () => {
-    return sessionStorage.getItem(`host_pass_${slug}`) || passcode || '1234';
+    return (
+      sessionStorage.getItem(`host_pass_${slug}`) ||
+      sessionStorage.getItem('superadmin_pass') ||
+      passcode ||
+      ''
+    );
   };
 
   const handleSaveTheme = async (newTheme) => {
@@ -112,7 +168,7 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
     setIsSaving(true);
     setFeedback(null);
     try {
-      const updated = await updateEvent(slug, {
+      const payload = {
         name: event.name,
         date: event.date,
         welcomeMessage: event.welcomeMessage,
@@ -120,10 +176,21 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
         specialGreeting: event.specialGreeting,
         showGreetingBanner: event.showGreetingBanner,
         allowVideos: event.allowVideos,
-        requireModeration: event.requireModeration
-      }, getStoredPasscode());
+        requireModeration: event.requireModeration,
+        uploadsPaused: Boolean(event.uploadsPaused)
+      };
+
+      if (newHostPin.trim()) {
+        payload.hostPasscode = newHostPin.trim();
+      }
+      payload.moderatorPasscode = newModeratorPin.trim();
+
+      const updated = await updateEvent(slug, payload, getStoredPasscode());
       setEvent(updated);
-      setFeedback({ type: 'success', text: 'Configuración actualizada exitosamente' });
+      if (newHostPin.trim() && role === 'host') {
+        sessionStorage.setItem(`host_pass_${slug}`, newHostPin.trim());
+      }
+      setFeedback({ type: 'success', text: 'Configuración y códigos de acceso actualizados exitosamente' });
       setTimeout(() => setFeedback(null), 4000);
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Error al actualizar configuración' });
@@ -177,10 +244,10 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
           </div>
 
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 8 }}>
-            Panel de Anfitrión
+            Acceso Anfitrión / DJ
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24 }}>
-            Ingresa el código PIN asignado al crear el evento para personalizar temas, moderar fotos y descargar el álbum.
+            Ingresa tu código PIN de Anfitrión Principal o el PIN de Moderador/DJ para controlar el proyector y gestionar la galería.
           </p>
 
           <form onSubmit={handleLogin} style={{ maxWidth: 320, margin: '0 auto' }}>
@@ -188,7 +255,7 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
               <input
                 type="password"
                 className="form-control"
-                placeholder="Código PIN (por defecto 1234)"
+                placeholder="Ingresa tu código PIN"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 autoFocus
@@ -226,7 +293,11 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ShieldCheck size={22} color="var(--theme-primary, #D4AF37)" />
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--theme-primary, #D4AF37)', letterSpacing: '0.5px' }}>
-              PANEL DE CONTROL DEL ANFITRIÓN
+              {role === 'superadmin'
+                ? 'PANEL DE CONTROL • SUPERADMIN'
+                : role === 'moderator'
+                  ? 'PANEL DE CONTROL • MODERADOR / DJ'
+                  : 'PANEL DE CONTROL DEL ANFITRIÓN'}
             </span>
           </div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '4px 0 0' }}>
@@ -235,14 +306,27 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <a
-            href={getDownloadZipUrl(slug)}
-            className="btn btn-secondary"
-            title="Descargar álbum completo en ZIP"
-            style={{ padding: '10px 16px', fontSize: '0.9rem' }}
-          >
-            <Download size={18} /> Descargar Álbum (ZIP)
-          </a>
+          {isFullHost && onOpenQr && (
+            <button
+              onClick={onOpenQr}
+              className="btn btn-secondary"
+              title="Ver e imprimir Tarjetas QR para las mesas"
+              style={{ padding: '10px 16px', fontSize: '0.9rem' }}
+            >
+              <QrCode size={18} /> Tarjeta QR Mesas
+            </button>
+          )}
+
+          {isFullHost && (
+            <a
+              href={getDownloadZipUrl(slug)}
+              className="btn btn-secondary"
+              title="Descargar álbum completo en ZIP"
+              style={{ padding: '10px 16px', fontSize: '0.9rem' }}
+            >
+              <Download size={18} /> Descargar Álbum (ZIP)
+            </a>
+          )}
 
           {onOpenLive && (
             <button
@@ -253,6 +337,15 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
               Iniciar Proyector
             </button>
           )}
+
+          <button
+            onClick={handleLogout}
+            className="btn btn-secondary"
+            title="Cerrar sesión de anfitrión en este dispositivo"
+            style={{ padding: '10px 14px', fontSize: '0.85rem' }}
+          >
+            <LogOut size={16} /> Salir
+          </button>
         </div>
       </div>
 
@@ -336,18 +429,20 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
           <Radio size={16} /> Control Remoto en Vivo
         </button>
 
-        <button
-          onClick={() => setActiveTab('theme')}
-          className="btn btn-secondary"
-          style={{
-            background: activeTab === 'theme' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
-            color: activeTab === 'theme' ? '#0E1116' : 'var(--text-main)',
-            border: 'none',
-            fontWeight: activeTab === 'theme' ? 700 : 500
-          }}
-        >
-          <Palette size={16} /> Personalizar Tema
-        </button>
+        {isFullHost && (
+          <button
+            onClick={() => setActiveTab('theme')}
+            className="btn btn-secondary"
+            style={{
+              background: activeTab === 'theme' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
+              color: activeTab === 'theme' ? '#0E1116' : 'var(--text-main)',
+              border: 'none',
+              fontWeight: activeTab === 'theme' ? 700 : 500
+            }}
+          >
+            <Palette size={16} /> Personalizar Tema
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('moderation')}
@@ -362,18 +457,20 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
           <ImageIcon size={16} /> Moderar Galería ({mediaList.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('settings')}
-          className="btn btn-secondary"
-          style={{
-            background: activeTab === 'settings' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
-            color: activeTab === 'settings' ? '#0E1116' : 'var(--text-main)',
-            border: 'none',
-            fontWeight: activeTab === 'settings' ? 700 : 500
-          }}
-        >
-          <Settings size={16} /> Ajustes del Evento
-        </button>
+        {isFullHost && (
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="btn btn-secondary"
+            style={{
+              background: activeTab === 'settings' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
+              color: activeTab === 'settings' ? '#0E1116' : 'var(--text-main)',
+              border: 'none',
+              fontWeight: activeTab === 'settings' ? 700 : 500
+            }}
+          >
+            <Settings size={16} /> Ajustes del Evento
+          </button>
+        )}
       </div>
 
       {/* Tab: Remote Control */}
@@ -597,7 +694,7 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
       )}
 
       {/* Tab: Settings */}
-      {activeTab === 'settings' && (
+      {activeTab === 'settings' && isFullHost && (
         <div className="glass-card" style={{ maxWidth: 650, padding: 28 }}>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 20 }}>
             Configuración General del Evento
@@ -645,6 +742,47 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
               />
             </div>
 
+            {/* Event Access PINs */}
+            <div style={{
+              padding: '16px',
+              borderRadius: 12,
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: 20
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: '0.95rem', marginBottom: 12, color: 'var(--theme-primary, #D4AF37)' }}>
+                <KeyRound size={16} /> Códigos de Acceso y Roles
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">PIN Principal de Anfitrión (Control Total):</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Ej. 1234"
+                    value={newHostPin}
+                    onChange={(e) => setNewHostPin(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">PIN de Moderador / DJ (Opcional):</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Vacío = desactivado (Ej. 0000)"
+                    value={newModeratorPin}
+                    onChange={(e) => setNewModeratorPin(e.target.value)}
+                  />
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: 4 }}>
+                    Solo da acceso a Proyector, Control Remoto y Moderación.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: '0.9rem' }}>
                 <input
@@ -667,7 +805,7 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
               </label>
             </div>
 
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: '0.9rem' }}>
                 <input
                   type="checkbox"
@@ -676,6 +814,26 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive }) {
                 />
                 <span>Moderar antes de mostrar (las fotos requieren aprobación antes de proyectarse)</span>
               </label>
+            </div>
+
+            <div style={{
+              marginBottom: 24,
+              padding: '12px 14px',
+              borderRadius: 10,
+              background: event.uploadsPaused ? 'rgba(245, 158, 11, 0.14)' : 'rgba(255, 255, 255, 0.03)',
+              border: `1px solid ${event.uploadsPaused ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: '0.92rem', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(event.uploadsPaused)}
+                  onChange={(e) => setEvent({ ...event, uploadsPaused: e.target.checked })}
+                />
+                <span>⏸️ Pausar recepción de nuevas fotos, videos y reacciones (Cierre de fiesta)</span>
+              </label>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: 4, marginLeft: 24 }}>
+                La galería seguirá abierta para que los invitados puedan ver, dar me gusta y descargar los recuerdos.
+              </span>
             </div>
 
             <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ padding: '12px 24px' }}>

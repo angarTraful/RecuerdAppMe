@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import {
@@ -21,17 +21,17 @@ export default function LiveSlideshow({ slug, onExit }) {
   const [intervalSec, setIntervalSec] = useState(6);
   const [isMuted, setIsMuted] = useState(true);
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
-  const [showQr, setShowQr] = useState(true);
+  const [showQr, setShowQr] = useState(false);
   const [showCaptions, setShowCaptions] = useState(true);
   const [showHybridStrip, setShowHybridStrip] = useState(true);
   const [kenBurns, setKenBurns] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(true);
+  const [showControls, setShowControls] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // New features state
   const [flashFiestaItem, setFlashFiestaItem] = useState(null);
-  const [flashFiestaRemaining, setFlashFiestaRemaining] = useState(5);
+  const [flashFiestaRemaining, setFlashFiestaRemaining] = useState(8);
   const [liveReactions, setLiveReactions] = useState([]);
   const [greetingText, setGreetingText] = useState('');
   const [remoteToast, setRemoteToast] = useState(null);
@@ -39,7 +39,51 @@ export default function LiveSlideshow({ slug, onExit }) {
   const controlsTimeoutRef = useRef(null);
   const videoRef = useRef(null);
   const flashTimerRef = useRef(null);
+  const mediaListRef = useRef([]);
+  const currentIndexRef = useRef(0);
+  const soundEffectsRef = useRef(true);
   const fullUrl = `${window.location.origin}/#/e/${slug}`;
+
+  useEffect(() => {
+    mediaListRef.current = mediaList;
+  }, [mediaList]);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    soundEffectsRef.current = soundEffectsEnabled;
+  }, [soundEffectsEnabled]);
+
+  const handleReactionsComplete = useCallback(() => {
+    setLiveReactions((prev) => prev.slice(5));
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setMediaList((list) => {
+      if (list.length > 0) {
+        setCurrentIndex((prev) => (prev + 1) % list.length);
+      }
+      return list;
+    });
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    setMediaList((list) => {
+      if (list.length > 0) {
+        setCurrentIndex((prev) => (prev - 1 + list.length) % list.length);
+      }
+      return list;
+    });
+  }, []);
+
+  // Keep currentIndex within bounds if mediaList shrinks
+  useEffect(() => {
+    if (mediaList.length > 0 && currentIndex >= mediaList.length) {
+      setCurrentIndex(0);
+    }
+  }, [mediaList.length, currentIndex]);
 
   // Find the most-voted photo (with at least 1 like)
   const mostVotedItem = mediaList.reduce((max, item) => {
@@ -51,10 +95,16 @@ export default function LiveSlideshow({ slug, onExit }) {
   // Load initial data
   useEffect(() => {
     loadData();
+  }, [slug]);
 
-    // Socket real-time updates
+  // Socket real-time updates (stable listener registration)
+  useEffect(() => {
     const socket = getSocket();
     joinEventRoom(slug);
+
+    const handleConnect = () => {
+      joinEventRoom(slug);
+    };
 
     // 1. New media uploaded by a guest
     const handleNewMedia = (payload) => {
@@ -78,7 +128,7 @@ export default function LiveSlideshow({ slug, onExit }) {
     const handleLiveReaction = (reaction) => {
       if (!reaction || !reaction.emoji) return;
 
-      if (soundEffectsEnabled) {
+      if (soundEffectsRef.current) {
         playPopSound();
       }
 
@@ -108,11 +158,12 @@ export default function LiveSlideshow({ slug, onExit }) {
         setIsPlaying(false);
       } else if (action === 'confetti') {
         launchPartyConfetti();
-        if (soundEffectsEnabled) playCelebrationChime();
-        showNotificationToast('🎊 ¡Lluvia de Confeti lanzada por el anfitrión!');
+        if (soundEffectsRef.current) playCelebrationChime();
       } else if (action === 'trigger_flash') {
-        if (mediaList.length > 0) {
-          triggerFlashFiesta(mediaList[currentIndex] || mediaList[0]);
+        const list = mediaListRef.current;
+        const idx = currentIndexRef.current;
+        if (list.length > 0) {
+          triggerFlashFiesta(list[idx] || list[0]);
         }
       } else if (action === 'toast') {
         showNotificationToast(payload?.message || '¡Momento Especial!');
@@ -138,6 +189,7 @@ export default function LiveSlideshow({ slug, onExit }) {
       }
     };
 
+    socket.on('connect', handleConnect);
     socket.on('new_media', handleNewMedia);
     socket.on('live_reaction', handleLiveReaction);
     socket.on('remote_command', handleRemoteCommand);
@@ -145,6 +197,7 @@ export default function LiveSlideshow({ slug, onExit }) {
     socket.on('media_deleted', handleMediaDeleted);
 
     return () => {
+      socket.off('connect', handleConnect);
       socket.off('new_media', handleNewMedia);
       socket.off('live_reaction', handleLiveReaction);
       socket.off('remote_command', handleRemoteCommand);
@@ -152,7 +205,7 @@ export default function LiveSlideshow({ slug, onExit }) {
       socket.off('media_deleted', handleMediaDeleted);
       leaveEventRoom(slug);
     };
-  }, [slug, soundEffectsEnabled, currentIndex, mediaList]);
+  }, [slug, handleNext, handlePrev]);
 
   const loadData = async () => {
     try {
@@ -169,30 +222,48 @@ export default function LiveSlideshow({ slug, onExit }) {
     }
   };
 
-  // Launch massive party confetti
+  // Launch massive party confetti (zIndex > 2000 so it renders above the slideshow-container)
   const launchPartyConfetti = () => {
     try {
+      const defaults = {
+        zIndex: 2500,
+        colors: ['#D4AF37', '#F59E0B', '#EC4899', '#06B6D4', '#10B981', '#A855F7', '#EF4444']
+      };
+
       confetti({
-        particleCount: 120,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: ['#D4AF37', '#F59E0B', '#EC4899', '#06B6D4', '#10B981']
+        ...defaults,
+        particleCount: 140,
+        spread: 110,
+        origin: { y: 0.6 }
       });
+
       setTimeout(() => {
         confetti({
-          particleCount: 80,
+          ...defaults,
+          particleCount: 90,
           angle: 60,
-          spread: 80,
-          origin: { x: 0.1, y: 0.7 }
+          spread: 85,
+          origin: { x: 0.08, y: 0.7 }
         });
         confetti({
-          particleCount: 80,
+          ...defaults,
+          particleCount: 90,
           angle: 120,
-          spread: 80,
-          origin: { x: 0.9, y: 0.7 }
+          spread: 85,
+          origin: { x: 0.92, y: 0.7 }
         });
-      }, 300);
-    } catch (e) {}
+      }, 280);
+
+      setTimeout(() => {
+        confetti({
+          ...defaults,
+          particleCount: 100,
+          spread: 130,
+          startVelocity: 45,
+          origin: { x: 0.5, y: 0.45 }
+        });
+      }, 600);
+    } catch (e) { }
   };
 
   // Trigger the 5-second Flash Fiesta presentation takeover
@@ -205,7 +276,7 @@ export default function LiveSlideshow({ slug, onExit }) {
     setFlashFiestaRemaining(5);
 
     // Audio effect: Shutter click + chime
-    if (soundEffectsEnabled) {
+    if (soundEffectsRef.current) {
       playCameraShutterSound();
       setTimeout(() => playCelebrationChime(), 150);
     }
@@ -240,11 +311,26 @@ export default function LiveSlideshow({ slug, onExit }) {
     const slideDuration = currentItem?.isVideo ? 14000 : intervalSec * 1000;
 
     const timer = setTimeout(() => {
-      handleNext();
+      setCurrentIndex((prev) => (prev + 1) % mediaList.length);
     }, slideDuration);
 
     return () => clearTimeout(timer);
-  }, [isPlaying, currentIndex, intervalSec, mediaList, flashFiestaItem]);
+  }, [isPlaying, currentIndex, intervalSec, mediaList.length, flashFiestaItem]);
+
+  // Keyboard shortcuts for projector
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === ' ') {
+        e.preventDefault();
+        setIsPlaying((p) => !p);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNext, handlePrev]);
 
   // Hide controls on mouse inactivity
   const handleMouseMove = () => {
@@ -255,21 +341,11 @@ export default function LiveSlideshow({ slug, onExit }) {
     }, 3500);
   };
 
-  const handleNext = () => {
-    if (mediaList.length === 0) return;
-    setCurrentIndex((prev) => (prev + 1) % mediaList.length);
-  };
-
-  const handlePrev = () => {
-    if (mediaList.length === 0) return;
-    setCurrentIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
-  };
-
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => { });
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => { });
     }
   };
 
@@ -288,7 +364,7 @@ export default function LiveSlideshow({ slug, onExit }) {
       {/* Floating live emoji reactions */}
       <FloatingReactions
         reactions={liveReactions}
-        onComplete={() => setLiveReactions((prev) => prev.slice(5))}
+        onComplete={handleReactionsComplete}
       />
 
       {/* Top Greeting Celebratory Banner */}
@@ -692,7 +768,7 @@ export default function LiveSlideshow({ slug, onExit }) {
         </button>
 
         <button
-          onClick={() => setIsPlaying(!isPlaying)}
+          onClick={() => setIsPlaying((prev) => !prev)}
           style={{
             background: 'var(--theme-primary, #D4AF37)',
             color: '#0E1116',
@@ -705,7 +781,7 @@ export default function LiveSlideshow({ slug, onExit }) {
             justifyContent: 'center',
             cursor: 'pointer'
           }}
-          title={isPlaying ? 'Pausar' : 'Reproducir'}
+          title={isPlaying ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'}
         >
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
         </button>

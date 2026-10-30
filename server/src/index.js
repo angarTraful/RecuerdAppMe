@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import eventsRouter from './routes/events.js';
 import mediaRouter from './routes/media.js';
 import downloadRouter from './routes/download.js';
+import { db } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,6 +65,8 @@ io.on('connection', (socket) => {
   // Real-time live emoji reactions sent by guests from their phones
   socket.on('send_reaction', ({ slug, emoji, uploaderName }) => {
     if (!slug || !emoji) return;
+    const event = db.getEventBySlug(slug);
+    if (!event || event.uploadsPaused) return;
     io.to(`event:${slug}`).emit('live_reaction', {
       emoji,
       uploaderName: uploaderName || 'Un invitado',

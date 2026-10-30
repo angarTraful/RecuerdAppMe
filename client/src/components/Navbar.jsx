@@ -1,7 +1,24 @@
 import React from 'react';
 import { Camera, Tv, ShieldCheck, QrCode, Home, Sparkles } from 'lucide-react';
 
-export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
+export default function Navbar({
+  event,
+  currentTab,
+  onTabChange,
+  onOpenQr,
+  isEventAdmin = false,
+  isSuperAdmin = false
+}) {
+  const handleBrandClick = (e) => {
+    e.preventDefault();
+    if (event) {
+      // If inside an event, guests stay on the event page; only SuperAdmin can jump back to Home directory via the Inicio button
+      window.location.hash = `#/e/${event.slug}`;
+    } else {
+      window.location.hash = '#/';
+    }
+  };
+
   return (
     <header style={{
       position: 'sticky',
@@ -24,8 +41,8 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
       }}>
         {/* Brand */}
         <a 
-          href="/" 
-          onClick={(e) => { e.preventDefault(); window.location.hash = '#/'; }}
+          href={event ? `#/e/${event.slug}` : '#/'}
+          onClick={handleBrandClick}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -52,15 +69,15 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
               RecuerdApp<span style={{ color: 'var(--theme-primary, #D4AF37)' }}>Me</span>
             </div>
             {event && (
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {event.name}
               </div>
             )}
           </div>
         </a>
 
-        {/* Navigation tabs if on an event */}
-        {event ? (
+        {/* Navigation tabs if on an event AND user is authorized (Host/Moderator/SuperAdmin) or currently on the /admin login route */}
+        {event && (isEventAdmin || currentTab === 'admin') ? (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -70,6 +87,24 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
             borderRadius: 14,
             border: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
+            {isSuperAdmin && (
+              <button
+                onClick={() => { window.location.hash = '#/'; }}
+                className="btn btn-secondary"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.82rem',
+                  borderRadius: 10,
+                  background: 'transparent',
+                  border: 'none'
+                }}
+                title="Directorio de Eventos (SuperAdmin)"
+              >
+                <Home size={16} />
+                <span className="hide-mobile">Eventos</span>
+              </button>
+            )}
+
             <button
               onClick={() => onTabChange('guest')}
               className="btn btn-secondary"
@@ -87,23 +122,25 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
               <span className="hide-mobile">Invitados</span>
             </button>
 
-            <button
-              onClick={() => onTabChange('live')}
-              className="btn btn-secondary"
-              style={{
-                padding: '8px 14px',
-                fontSize: '0.85rem',
-                borderRadius: 10,
-                background: currentTab === 'live' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
-                color: currentTab === 'live' ? '#0E1116' : 'var(--text-main)',
-                border: 'none',
-                fontWeight: currentTab === 'live' ? 700 : 500
-              }}
-              title="Abrir proyector en pantalla completa"
-            >
-              <Tv size={16} />
-              <span>Proyector</span>
-            </button>
+            {isEventAdmin && (
+              <button
+                onClick={() => onTabChange('live')}
+                className="btn btn-secondary"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '0.85rem',
+                  borderRadius: 10,
+                  background: currentTab === 'live' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
+                  color: currentTab === 'live' ? '#0E1116' : 'var(--text-main)',
+                  border: 'none',
+                  fontWeight: currentTab === 'live' ? 700 : 500
+                }}
+                title="Abrir proyector en pantalla completa"
+              >
+                <Tv size={16} />
+                <span>Proyector</span>
+              </button>
+            )}
 
             <button
               onClick={() => onTabChange('admin')}
@@ -123,7 +160,7 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
               <span className="hide-mobile">Anfitrión</span>
             </button>
 
-            {onOpenQr && (
+            {onOpenQr && isEventAdmin && currentTab === 'admin' && (
               <button
                 onClick={onOpenQr}
                 className="btn btn-secondary"
@@ -138,17 +175,22 @@ export default function Navbar({ event, currentTab, onTabChange, onOpenQr }) {
               </button>
             )}
           </div>
-        ) : (
-          <div>
-            <a
-              href="#/"
-              className="btn btn-secondary"
-              style={{ padding: '8px 16px', fontSize: '0.88rem' }}
-            >
-              <Home size={16} /> Inicio
-            </a>
+        ) : event ? (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 14px',
+            borderRadius: 20,
+            background: 'rgba(var(--primary-rgb), 0.12)',
+            border: '1px solid rgba(var(--primary-rgb), 0.25)',
+            color: 'var(--theme-primary, #D4AF37)',
+            fontSize: '0.8rem',
+            fontWeight: 700
+          }}>
+            <Sparkles size={14} /> Galería en Vivo
           </div>
-        )}
+        ) : null}
       </div>
     </header>
   );

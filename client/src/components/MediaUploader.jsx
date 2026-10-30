@@ -1,19 +1,36 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Image as ImageIcon, Video, X, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { UploadCloud, Camera, Image as ImageIcon, Video, X, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { uploadMediaFiles } from '../utils/api';
 
-export default function MediaUploader({ slug, allowVideos = true, onUploadSuccess }) {
+export default function MediaUploader({
+  slug,
+  allowVideos = true,
+  guestName = '',
+  onGuestNameChange,
+  onRequireName,
+  onUploadSuccess
+}) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
-  const [uploaderName, setUploaderName] = useState(() => localStorage.getItem('recuerdapp_name') || '');
+  const [uploaderName, setUploaderName] = useState(() => guestName || localStorage.getItem('recuerdapp_name') || '');
   const [caption, setCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  
+
   const fileInputRef = useRef(null);
+  const cameraPhotoInputRef = useRef(null);
+  const cameraVideoInputRef = useRef(null);
+  const nameInputRef = useRef(null);
+
+  // Sync with parent guestName state
+  useEffect(() => {
+    if (guestName && guestName !== uploaderName) {
+      setUploaderName(guestName);
+    }
+  }, [guestName]);
 
   // Save guest name to localStorage for seamless repeat uploads
   useEffect(() => {
@@ -55,6 +72,13 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
     setSelectedFiles((prev) => [...prev, ...validFiles]);
     setPreviews((prev) => [...prev, ...newPreviews]);
     setStatusMessage(null);
+
+    // If guest hasn't entered their name yet, guide them to the name input
+    if (!uploaderName.trim()) {
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 150);
+    }
   };
 
   const removeFile = (index) => {
@@ -74,13 +98,7 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
     }
   };
 
-  const handleUploadSubmit = async (e) => {
-    e.preventDefault();
-    if (selectedFiles.length === 0) {
-      alert('Por favor selecciona al menos una foto o video.');
-      return;
-    }
-
+  const performUpload = async (nameToUse) => {
     setIsUploading(true);
     setUploadProgress(0);
     setStatusMessage(null);
@@ -89,7 +107,7 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
       const result = await uploadMediaFiles(
         slug,
         selectedFiles,
-        uploaderName,
+        nameToUse,
         caption,
         (progress) => setUploadProgress(progress)
       );
@@ -129,6 +147,33 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
     }
   };
 
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedFiles.length === 0) {
+      alert('Por favor selecciona al menos una foto o video.');
+      return;
+    }
+
+    const cleanName = uploaderName.trim();
+    if (!cleanName) {
+      if (onRequireName) {
+        onRequireName((enteredName) => {
+          setUploaderName(enteredName);
+          performUpload(enteredName);
+        });
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: 'Por favor ingresa tu nombre o apodo antes de subir tus recuerdos.'
+        });
+        nameInputRef.current?.focus();
+      }
+      return;
+    }
+
+    await performUpload(cleanName);
+  };
+
   return (
     <div className="glass-card" style={{ padding: '24px', marginBottom: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
@@ -153,6 +198,115 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
       </div>
 
       <form onSubmit={handleUploadSubmit}>
+        {/* Hidden File Inputs */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={(e) => {
+            handleFilesChosen(e.target.files);
+            e.target.value = '';
+          }}
+          multiple
+          accept={allowVideos ? 'image/*,video/*' : 'image/*'}
+          style={{ display: 'none' }}
+        />
+
+        {/* Direct Mobile Camera Photo Input */}
+        <input
+          type="file"
+          ref={cameraPhotoInputRef}
+          onChange={(e) => {
+            handleFilesChosen(e.target.files);
+            e.target.value = '';
+          }}
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+        />
+
+        {/* Direct Mobile Camera Video Input */}
+        {allowVideos && (
+          <input
+            type="file"
+            ref={cameraVideoInputRef}
+            onChange={(e) => {
+              handleFilesChosen(e.target.files);
+              e.target.value = '';
+            }}
+            accept="video/*"
+            capture="environment"
+            style={{ display: 'none' }}
+          />
+        )}
+
+        {/* Quick Camera & Gallery Action Buttons */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: allowVideos ? 'repeat(auto-fit, minmax(150px, 1fr))' : 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 12,
+          marginBottom: 14
+        }}>
+          <button
+            type="button"
+            onClick={() => cameraPhotoInputRef.current?.click()}
+            disabled={isUploading}
+            className="btn btn-primary"
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              fontSize: '0.95rem'
+            }}
+          >
+            <Camera size={20} />
+            <span>Tomar Foto Ahora</span>
+          </button>
+
+          {allowVideos && (
+            <button
+              type="button"
+              onClick={() => cameraVideoInputRef.current?.click()}
+              disabled={isUploading}
+              className="btn btn-secondary"
+              style={{
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid rgba(var(--primary-rgb), 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                fontSize: '0.95rem'
+              }}
+            >
+              <Video size={20} color="var(--theme-primary, #D4AF37)" />
+              <span>Grabar Video</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="btn btn-secondary"
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              fontSize: '0.95rem'
+            }}
+          >
+            <ImageIcon size={20} />
+            <span>Elegir de la Galería</span>
+          </button>
+        </div>
+
         {/* Dropzone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -162,7 +316,7 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
           style={{
             border: `2px dashed ${isDragOver ? 'var(--theme-primary, #D4AF37)' : 'rgba(255, 255, 255, 0.18)'}`,
             borderRadius: 'var(--radius-md)',
-            padding: '28px 16px',
+            padding: '20px 16px',
             textAlign: 'center',
             cursor: 'pointer',
             background: isDragOver ? 'rgba(var(--primary-rgb), 0.08)' : 'rgba(0, 0, 0, 0.2)',
@@ -170,33 +324,24 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
             marginBottom: 18
           }}
         >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={(e) => handleFilesChosen(e.target.files)}
-            multiple
-            accept={allowVideos ? 'image/*,video/*' : 'image/*'}
-            style={{ display: 'none' }}
-          />
-
           <div style={{
-            width: 52,
-            height: 52,
+            width: 44,
+            height: 44,
             borderRadius: '50%',
             background: 'rgba(255, 255, 255, 0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 12px',
+            margin: '0 auto 8px',
             color: 'var(--theme-primary, #D4AF37)'
           }}>
-            <UploadCloud size={28} />
+            <UploadCloud size={24} />
           </div>
 
-          <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: 4 }}>
-            Toca aquí o arrastra tus fotos y videos
+          <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: 4 }}>
+            O toca aquí / arrastra varios archivos de tu galería
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             Admite JPG, PNG, WEBP {allowVideos ? 'y videos MP4/MOV hasta 150MB' : ''} • Selección múltiple
           </div>
         </div>
@@ -268,13 +413,18 @@ export default function MediaUploader({ slug, allowVideos = true, onUploadSucces
         {/* Inputs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <div className="form-group" style={{ marginBottom: 12 }}>
-            <label className="form-label">Tu Nombre o Apodo (Opcional):</label>
+            <label className="form-label">Tu Nombre o Apodo *:</label>
             <input
+              ref={nameInputRef}
               type="text"
+              required
               className="form-control"
-              placeholder="Ej. Tía Marcela, Gonzalo, Familia Silva..."
+              placeholder="Ej. Mesa 1, Marcela Flores, Gonzalo, Familia Garcia..."
               value={uploaderName}
-              onChange={(e) => setUploaderName(e.target.value)}
+              onChange={(e) => {
+                setUploaderName(e.target.value);
+                if (onGuestNameChange) onGuestNameChange(e.target.value);
+              }}
               disabled={isUploading}
             />
           </div>

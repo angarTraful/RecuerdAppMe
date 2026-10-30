@@ -14,6 +14,9 @@ if (!fs.existsSync(DATA_DIR)) {
 
 // Initial default state with an engaging sample event
 const initialData = {
+  settings: {
+    masterPasscode: process.env.MASTER_PASSCODE || 'admin2026'
+  },
   events: [
     {
       id: 'evt-demo-boda',
@@ -21,6 +24,8 @@ const initialData = {
       name: 'Boda de Valentina & Mateo',
       date: '2026-11-15',
       hostPasscode: '1234',
+      moderatorPasscode: '0000',
+      uploadsPaused: false,
       welcomeMessage: '¡Bienvenidos a nuestra boda! Gracias por ser parte de este momento tan especial. Comparte aquí todas tus fotos y videos.',
       instructions: 'Toma fotos espontáneas, momentos divertidos y déjanos tu saludo para proyectarlo en vivo.',
       requireModeration: false,
@@ -126,6 +131,43 @@ function writeDb(data) {
 }
 
 export const db = {
+  // System Settings / Master Passcode
+  getMasterPasscode() {
+    const data = readDb();
+    return data.settings?.masterPasscode || process.env.MASTER_PASSCODE || 'admin2026';
+  },
+
+  updateMasterPasscode(newPasscode) {
+    const data = readDb();
+    data.settings = {
+      ...(data.settings || {}),
+      masterPasscode: newPasscode
+    };
+    writeDb(data);
+    return true;
+  },
+
+  verifyEventAccess(slug, passcode) {
+    if (!passcode) return null;
+    const master = this.getMasterPasscode();
+    if (passcode === master) {
+      return { authorized: true, role: 'superadmin' };
+    }
+
+    const event = this.getEventBySlug(slug);
+    if (!event) return null;
+
+    if (event.hostPasscode && passcode === event.hostPasscode) {
+      return { authorized: true, role: 'host' };
+    }
+
+    if (event.moderatorPasscode && passcode === event.moderatorPasscode) {
+      return { authorized: true, role: 'moderator' };
+    }
+
+    return null;
+  },
+
   // Events
   getAllEvents() {
     const data = readDb();
@@ -135,6 +177,7 @@ export const db = {
       name: ev.name,
       date: ev.date,
       welcomeMessage: ev.welcomeMessage,
+      uploadsPaused: Boolean(ev.uploadsPaused),
       theme: ev.theme,
       createdAt: ev.createdAt,
       mediaCount: data.media.filter(m => m.eventId === ev.id && m.status === 'approved').length
@@ -175,7 +218,8 @@ export const db = {
       ...updates,
       id: current.id,
       slug: current.slug,
-      hostPasscode: updates.hostPasscode || current.hostPasscode,
+      hostPasscode: updates.hostPasscode !== undefined && updates.hostPasscode.trim() !== '' ? updates.hostPasscode.trim() : current.hostPasscode,
+      moderatorPasscode: updates.moderatorPasscode !== undefined ? updates.moderatorPasscode.trim() : (current.moderatorPasscode || ''),
       updatedAt: new Date().toISOString()
     };
     
@@ -192,6 +236,17 @@ export const db = {
     data.events = data.events.filter(e => e.slug.toLowerCase() !== slug.toLowerCase());
     data.media = data.media.filter(m => m.eventId !== event.id);
     writeDb(data);
+
+    // Clean up physical uploads folder for this event
+    try {
+      const eventUploadsDir = path.join(__dirname, '..', 'uploads', event.slug);
+      if (fs.existsSync(eventUploadsDir)) {
+        fs.rmSync(eventUploadsDir, { recursive: true, force: true });
+      }
+    } catch (err) {
+      console.error('Error removing event uploads directory:', err);
+    }
+
     return true;
   },
 

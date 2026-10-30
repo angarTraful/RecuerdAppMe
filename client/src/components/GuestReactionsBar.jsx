@@ -12,15 +12,15 @@ const REACTION_EMOJIS = [
   { emoji: '👏', label: 'Aplausos' }
 ];
 
-export default function GuestReactionsBar({ slug, guestName }) {
+export default function GuestReactionsBar({ slug, guestName, onRequireName }) {
   const [activeFeedback, setActiveFeedback] = useState(null);
 
-  const handleSendReaction = (emoji) => {
+  const sendEmoji = (emoji, nameToUse) => {
     // Play local pop sound
     playPopSound();
 
     // Broadcast to the projector screen
-    emitReaction(slug, emoji, guestName || 'Un invitado');
+    emitReaction(slug, emoji, nameToUse);
 
     // Show quick feedback
     setActiveFeedback(emoji);
@@ -30,6 +30,18 @@ export default function GuestReactionsBar({ slug, guestName }) {
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(40);
     }
+  };
+
+  const handleSendReaction = (emoji) => {
+    const cleanName = (guestName || '').trim();
+    if (!cleanName) {
+      if (onRequireName) {
+        onRequireName((enteredName) => sendEmoji(emoji, enteredName));
+      }
+      return;
+    }
+
+    sendEmoji(emoji, cleanName);
   };
 
   return (

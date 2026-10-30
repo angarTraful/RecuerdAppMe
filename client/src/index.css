@@ -15,7 +15,7 @@
   --accent: #F59E0B;
   --danger: #EF4444;
   --success: #10B981;
-  
+
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-heading: 'Outfit', sans-serif;
   --radius-sm: 8px;
@@ -34,13 +34,16 @@
 }
 
 /* Base reset */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body {
+html,
+body {
   min-height: 100vh;
   background-color: var(--bg-color);
   color: var(--text-main);
@@ -60,8 +63,8 @@ html, body {
   transition: background-color var(--transition-smooth);
 }
 
-.themed-app h1, 
-.themed-app h2, 
+.themed-app h1,
+.themed-app h2,
 .themed-app h3,
 .themed-app .theme-heading {
   font-family: var(--theme-heading-font, var(--font-heading));
@@ -266,13 +269,13 @@ textarea.form-control {
 /* Gallery Grid */
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
 }
 
 @media (max-width: 640px) {
   .media-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
   }
 }
@@ -307,7 +310,7 @@ textarea.form-control {
 .media-card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 60%);
   opacity: 0;
   display: flex;
   flex-direction: column;
@@ -322,8 +325,9 @@ textarea.form-control {
 
 @media (max-width: 768px) {
   .media-card-overlay {
-    opacity: 1; /* Always visible on mobile touch devices */
-    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+    opacity: 1;
+    /* Always visible on mobile touch devices */
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 50%);
   }
 }
 
@@ -377,7 +381,7 @@ textarea.form-control {
   max-width: 100vw;
   max-height: 100vh;
   object-fit: contain;
-  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
 }
 
 .slideshow-slide.ken-burns .slideshow-media {
@@ -385,8 +389,13 @@ textarea.form-control {
 }
 
 @keyframes kenBurns {
-  0% { transform: scale(1) translate(0, 0); }
-  100% { transform: scale(1.1) translate(-1%, -1%); }
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+
+  100% {
+    transform: scale(1.1) translate(-1%, -1%);
+  }
 }
 
 .slideshow-qr-badge {
@@ -407,8 +416,15 @@ textarea.form-control {
 }
 
 @keyframes floatBounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .slideshow-caption-box {
@@ -427,18 +443,37 @@ textarea.form-control {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scaleUp {
-  from { transform: scale(0.95); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Floating reactions animation */
@@ -447,13 +482,16 @@ textarea.form-control {
     transform: translateY(0) scale(0.6) rotate(0deg);
     opacity: 0;
   }
+
   15% {
     opacity: 1;
     transform: translateY(-80px) scale(1.15) rotate(-6deg);
   }
+
   50% {
     transform: translateY(-400px) scale(1) rotate(6deg);
   }
+
   100% {
     transform: translateY(-900px) scale(0.9) rotate(-10deg);
     opacity: 0;
@@ -465,9 +503,11 @@ textarea.form-control {
   0% {
     box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0.95);
   }
+
   20% {
     box-shadow: inset 0 0 100px 30px rgba(var(--primary-rgb), 0.9);
   }
+
   100% {
     box-shadow: inset 0 0 40px 10px rgba(var(--primary-rgb), 0.4);
   }
@@ -478,7 +518,8 @@ textarea.form-control {
   position: absolute;
   bottom: 24px;
   left: 30px;
-  right: 280px; /* leaves room for QR badge */
+  right: 280px;
+  /* leaves room for QR badge */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -552,9 +593,12 @@ textarea.form-control {
   body * {
     visibility: hidden;
   }
-  .printable-card-area, .printable-card-area * {
+
+  .printable-card-area,
+  .printable-card-area * {
     visibility: visible;
   }
+
   .printable-card-area {
     position: absolute;
     left: 0;
@@ -566,4 +610,3 @@ textarea.form-control {
     color: #111 !important;
   }
 }
-

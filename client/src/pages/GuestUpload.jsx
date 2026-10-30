@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, Calendar, Sparkles, Heart, Share2, Tv, QrCode } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, Calendar, Sparkles, Heart, Share2, Tv, QrCode, User, Edit2, ShieldCheck, Lock } from 'lucide-react';
 import { fetchEvent, fetchEventMedia } from '../utils/api';
 import { getSocket, joinEventRoom, leaveEventRoom } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
@@ -8,13 +8,45 @@ import MediaGallery from '../components/MediaGallery';
 import Lightbox from '../components/Lightbox';
 import GuestReactionsBar from '../components/GuestReactionsBar';
 
-export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
+export default function GuestUpload({ slug, isEventAdmin = false, onOpenLive, onOpenAdmin }) {
   const { applyTheme } = useTheme();
   const [event, setEvent] = useState(null);
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMedia, setSelectedMedia] = useState(null);
+
+  // Guest name workflow state
+  const [guestName, setGuestName] = useState(() => (localStorage.getItem('recuerdapp_name') || '').trim());
+  const [showNameModal, setShowNameModal] = useState(() => !(localStorage.getItem('recuerdapp_name') || '').trim());
+  const [nameInput, setNameInput] = useState(() => (localStorage.getItem('recuerdapp_name') || '').trim());
+  const [pendingAction, setPendingAction] = useState(null);
+  const nameInputRef = useRef(null);
+
+  const handleSaveGuestName = (e) => {
+    if (e) e.preventDefault();
+    const cleaned = nameInput.trim();
+    if (!cleaned) return;
+    localStorage.setItem('recuerdapp_name', cleaned);
+    setGuestName(cleaned);
+    setShowNameModal(false);
+
+    if (pendingAction) {
+      const actionToRun = pendingAction;
+      setPendingAction(null);
+      setTimeout(() => actionToRun(cleaned), 50);
+    }
+  };
+
+  const openNamePrompt = (callback = null) => {
+    setNameInput(guestName || '');
+    if (callback) {
+      setPendingAction(() => callback);
+    } else {
+      setPendingAction(null);
+    }
+    setShowNameModal(true);
+  };
 
   useEffect(() => {
     loadEventData();
@@ -47,14 +79,25 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
       }
     };
 
+    const handleEventUpdated = (updatedEvent) => {
+      if (updatedEvent) {
+        setEvent(updatedEvent);
+        if (updatedEvent.theme) {
+          applyTheme(updatedEvent.theme);
+        }
+      }
+    };
+
     socket.on('new_media', handleNewMedia);
     socket.on('media_liked', handleMediaLiked);
     socket.on('media_deleted', handleMediaDeleted);
+    socket.on('event_updated', handleEventUpdated);
 
     return () => {
       socket.off('new_media', handleNewMedia);
       socket.off('media_liked', handleMediaLiked);
       socket.off('media_deleted', handleMediaDeleted);
+      socket.off('event_updated', handleEventUpdated);
       leaveEventRoom(slug);
     };
   }, [slug]);
@@ -164,7 +207,7 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              {onOpenLive && (
+              {isEventAdmin && onOpenLive && (
                 <button
                   onClick={onOpenLive}
                   className="btn btn-secondary"
@@ -174,17 +217,6 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
                   <Tv size={16} /> <span className="hide-mobile">Proyector</span>
                 </button>
               )}
-
-              {onOpenQr && (
-                <button
-                  onClick={onOpenQr}
-                  className="btn btn-secondary"
-                  style={{ backdropFilter: 'blur(10px)', padding: '8px 14px', fontSize: '0.85rem' }}
-                  title="Ver QR para compartir"
-                >
-                  <QrCode size={16} /> <span className="hide-mobile">Código QR</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -192,6 +224,52 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
 
       {/* Main Container */}
       <main className="container" style={{ marginTop: 28 }}>
+        {/* Guest Identity Bar */}
+        <div
+          className="glass-card"
+          style={{
+            padding: '12px 20px',
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 10
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: 'rgba(var(--primary-rgb), 0.15)',
+              color: 'var(--theme-primary, #D4AF37)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <User size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Participando en el evento como:
+              </div>
+              <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#fff' }}>
+                {guestName || 'Sin nombre aún'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openNamePrompt()}
+            className="btn btn-secondary"
+            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+          >
+            <Edit2 size={14} /> {guestName ? 'Cambiar nombre' : 'Ingresar mi nombre'}
+          </button>
+        </div>
+
         {/* Welcome message card from the host */}
         {event.welcomeMessage && (
           <div
@@ -216,18 +294,63 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
           </div>
         )}
 
-        {/* Live Guest Reaction Bar */}
-        <GuestReactionsBar
-          slug={slug}
-          guestName={localStorage.getItem('recuerdapp_name') || ''}
-        />
+        {/* If uploads are paused, show notice; otherwise show Live Reactions + Media Uploader */}
+        {event.uploadsPaused ? (
+          <div
+            className="glass-card"
+            style={{
+              padding: '24px',
+              marginBottom: 24,
+              textAlign: 'center',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              background: 'rgba(245, 158, 11, 0.08)'
+            }}
+          >
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.18)',
+              color: '#F59E0B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 12px'
+            }}>
+              <Lock size={22} />
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: 6 }}>
+              Subida de recuerdos finalizada
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', maxWidth: 500, marginInline: 'auto' }}>
+              El anfitrión ha pausado la recepción de nuevas fotos y videos, pero puedes seguir explorando, votando y descargando todos los recuerdos de la galería.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Live Guest Reaction Bar */}
+            <GuestReactionsBar
+              slug={slug}
+              guestName={guestName}
+              onRequireName={(cb) => openNamePrompt(cb)}
+            />
 
-        {/* Media Uploader Form */}
-        <MediaUploader
-          slug={slug}
-          allowVideos={event.allowVideos}
-          onUploadSuccess={handleUploadSuccess}
-        />
+            {/* Media Uploader Form */}
+            <MediaUploader
+              slug={slug}
+              allowVideos={event.allowVideos}
+              guestName={guestName}
+              onGuestNameChange={(newName) => {
+                setGuestName(newName);
+                if (newName.trim()) {
+                  localStorage.setItem('recuerdapp_name', newName.trim());
+                }
+              }}
+              onRequireName={(cb) => openNamePrompt(cb)}
+              onUploadSuccess={handleUploadSuccess}
+            />
+          </>
+        )}
 
         {/* Community Gallery */}
         <MediaGallery
@@ -235,7 +358,101 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
           slug={slug}
           onSelectMedia={(item) => setSelectedMedia(item)}
         />
+
+        {/* Subtle Host / Staff Access Footer */}
+        <footer style={{
+          marginTop: 60,
+          paddingTop: 24,
+          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)'
+        }}>
+          <span>Desarrollada por Andrés para Joaco </span>
+          {onOpenAdmin && (
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.35)',
+                fontSize: '0.76rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 8px'
+              }}
+              title="Acceso con PIN para Anfitrión o Moderador/DJ"
+            >
+              <ShieldCheck size={13} /> Acceso Anfitrión / DJ
+            </button>
+          )}
+        </footer>
       </main>
+
+      {/* Guest Name Onboarding / Prompt Modal */}
+      {showNameModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div
+            className="modal-content glass-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 440, padding: 28, textAlign: 'center' }}
+          >
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'rgba(var(--primary-rgb), 0.15)',
+              color: 'var(--theme-primary, #D4AF37)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px'
+            }}>
+              <Sparkles size={28} />
+            </div>
+
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 8 }}>
+              ¡Bienvenido a {event.name}!
+            </h3>
+            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>
+              ¿Cómo te llamas? Así tu nombre aparecerá junto a tus fotos, videos y reacciones en la pantalla del evento.
+            </p>
+
+            <form onSubmit={handleSaveGuestName}>
+              <div className="form-group" style={{ textAlign: 'left', marginBottom: 20 }}>
+                <label className="form-label">Tu Nombre o Apodo *</label>
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  required
+                  autoFocus
+                  className="form-control"
+                  placeholder="Ej. Tía Marcela, Joaco, Familia Gómez..."
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  style={{ fontSize: '1.05rem', padding: '14px 16px' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!nameInput.trim()}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+              >
+                Continuar al Evento
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox Modal */}
       {selectedMedia && (
@@ -243,13 +460,16 @@ export default function GuestUpload({ slug, onOpenQr, onOpenLive }) {
           mediaItem={selectedMedia}
           allMedia={media}
           onClose={() => setSelectedMedia(null)}
+          onSelectItem={(item) => setSelectedMedia(item)}
           onNext={() => {
             const idx = media.findIndex((m) => m.id === selectedMedia.id);
             if (idx < media.length - 1) setSelectedMedia(media[idx + 1]);
+            else if (media.length > 0) setSelectedMedia(media[0]);
           }}
           onPrev={() => {
             const idx = media.findIndex((m) => m.id === selectedMedia.id);
             if (idx > 0) setSelectedMedia(media[idx - 1]);
+            else if (media.length > 0) setSelectedMedia(media[media.length - 1]);
           }}
           onLike={(item) => {
             // Updated in gallery

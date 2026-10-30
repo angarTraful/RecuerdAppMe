@@ -12,6 +12,7 @@ export default function App() {
   const [currentRoute, setCurrentRoute] = useState(() => parseRoute());
   const [currentEvent, setCurrentEvent] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
 
   // Helper to parse window.location.hash
   function parseRoute() {
@@ -61,6 +62,13 @@ export default function App() {
     if (tab === 'admin') navigateTo(`#/e/${currentRoute.slug}/admin`);
   };
 
+  const isEventAdminAuthenticated = Boolean(
+    currentRoute.slug &&
+    (sessionStorage.getItem(`host_auth_${currentRoute.slug}`) === 'true' ||
+      sessionStorage.getItem('superadmin_auth') === 'true')
+  );
+  const isSuperAdmin = sessionStorage.getItem('superadmin_auth') === 'true';
+
   return (
     <ThemeProvider>
       <div className="themed-app" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -71,20 +79,26 @@ export default function App() {
             currentTab={currentRoute.page}
             onTabChange={handleTabChange}
             onOpenQr={() => setShowQrModal(true)}
+            isEventAdmin={isEventAdminAuthenticated}
+            isSuperAdmin={isSuperAdmin}
           />
         )}
 
         {/* Routed views */}
         <div style={{ flex: 1 }}>
           {currentRoute.page === 'home' && (
-            <Home onSelectEvent={(slug) => navigateTo(`#/e/${slug}`)} />
+            <Home
+              onSelectEvent={(slug) => navigateTo(`#/e/${slug}`)}
+              onAuthChange={() => setAuthVersion((v) => v + 1)}
+            />
           )}
 
           {currentRoute.page === 'guest' && (
             <GuestUpload
               slug={currentRoute.slug}
-              onOpenQr={() => setShowQrModal(true)}
+              isEventAdmin={isEventAdminAuthenticated}
               onOpenLive={() => navigateTo(`#/e/${currentRoute.slug}/live`)}
+              onOpenAdmin={() => navigateTo(`#/e/${currentRoute.slug}/admin`)}
             />
           )}
 
@@ -100,6 +114,7 @@ export default function App() {
               slug={currentRoute.slug}
               onOpenQr={() => setShowQrModal(true)}
               onOpenLive={() => navigateTo(`#/e/${currentRoute.slug}/live`)}
+              onAuthChange={() => setAuthVersion((v) => v + 1)}
             />
           )}
         </div>

@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Heart, Download, Calendar, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight, Heart, Download, Calendar, User, Play, Pause } from 'lucide-react';
 
-export default function Lightbox({ mediaItem, allMedia = [], onClose, onNext, onPrev, onLike }) {
+export default function Lightbox({ mediaItem, allMedia = [], onClose, onNext, onPrev, onLike, onSelectItem }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+
   if (!mediaItem) return null;
 
   const currentIndex = allMedia.findIndex((m) => m.id === mediaItem.id);
@@ -13,10 +15,29 @@ export default function Lightbox({ mediaItem, allMedia = [], onClose, onNext, on
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight' && hasNext) onNext();
       if (e.key === 'ArrowLeft' && hasPrev) onPrev();
+      if (e.key === ' ') {
+        e.preventDefault();
+        setIsPlaying((p) => !p);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hasNext, hasPrev, onClose, onNext, onPrev]);
+
+  useEffect(() => {
+    if (!isPlaying || allMedia.length <= 1) return;
+
+    const duration = mediaItem.isVideo ? 10000 : 4000;
+    const timer = setTimeout(() => {
+      if (hasNext) {
+        onNext();
+      } else if (onSelectItem && allMedia.length > 0) {
+        onSelectItem(allMedia[0]);
+      }
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, currentIndex, hasNext, mediaItem.isVideo, allMedia, onNext, onSelectItem]);
 
   return (
     <div
@@ -49,6 +70,17 @@ export default function Lightbox({ mediaItem, allMedia = [], onClose, onNext, on
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
+          {allMedia.length > 1 && (
+            <button
+              onClick={() => setIsPlaying((p) => !p)}
+              className={isPlaying ? 'btn btn-primary' : 'btn btn-secondary'}
+              style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+              title={isPlaying ? 'Pausar presentación' : 'Reproducir presentación automática'}
+            >
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+              <span className="hide-mobile">{isPlaying ? 'Pausar' : 'Presentación'}</span>
+            </button>
+          )}
           <a
             href={mediaItem.url}
             download={mediaItem.originalName || mediaItem.filename}

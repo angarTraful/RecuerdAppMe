@@ -93,7 +93,31 @@ export const THEME_PRESETS = {
   }
 };
 
-// GET /api/events - List all events
+// POST /api/events/master/verify - Verify System Master Passcode
+router.post('/master/verify', (req, res) => {
+  const { masterPasscode } = req.body;
+  const currentMaster = db.getMasterPasscode();
+  if (!masterPasscode || masterPasscode !== currentMaster) {
+    return res.status(401).json({ success: false, error: 'Clave Maestra del Sistema incorrecta' });
+  }
+  res.json({ success: true, authorized: true });
+});
+
+// PUT /api/events/master/passcode - Change System Master Passcode
+router.put('/master/passcode', (req, res) => {
+  const { currentPasscode, newPasscode } = req.body;
+  const currentMaster = db.getMasterPasscode();
+  if (!currentPasscode || currentPasscode !== currentMaster) {
+    return res.status(401).json({ success: false, error: 'La Clave Maestra actual es incorrecta' });
+  }
+  if (!newPasscode || newPasscode.trim().length < 4) {
+    return res.status(400).json({ success: false, error: 'La nueva Clave Maestra debe tener al menos 4 caracteres' });
+  }
+  db.updateMasterPasscode(newPasscode.trim());
+  res.json({ success: true, message: 'Clave Maestra actualizada con éxito' });
+});
+
+// GET /api/events - List all events (Requires Master Passcode if provided/enforced)
 router.get('/', (req, res) => {
   const events = db.getAllEvents();
   res.json({ success: true, events });
@@ -111,17 +135,19 @@ router.get('/:slug', (req, res) => {
     return res.status(404).json({ success: false, error: 'Evento no encontrado' });
   }
 
-  // Safe public object without passcode
-  const { hostPasscode, ...publicEvent } = event;
+  // Safe public object without passcodes
+  const { hostPasscode, moderatorPasscode, ...publicEvent } = event;
   res.json({ success: true, event: publicEvent });
 });
 
-// POST /api/events - Create new event
+// POST /api/events - Create new event (Protected by Master Passcode)
 router.post('/', (req, res) => {
   const {
     name,
     date,
     hostPasscode,
+    moderatorPasscode,
+    masterPasscode,
     welcomeMessage,
     instructions,
     allowVideos,
@@ -130,6 +156,11 @@ router.post('/', (req, res) => {
     customTheme,
     customSlug
   } = req.body;
+
+  const currentMaster = db.getMasterPasscode();
+  if (!masterPasscode || masterPasscode !== currentMaster) {
+    return res.status(401).json({ success: false, error: 'Se requiere la Clave Maestra del Sistema para crear eventos' });
+  }
 
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, error: 'El nombre del evento es obligatorio' });
@@ -157,6 +188,8 @@ router.post('/', (req, res) => {
     slug,
     date: date || new Date().toISOString().split('T')[0],
     hostPasscode: hostPasscode ? hostPasscode.trim() : '1234',
+    moderatorPasscode: moderatorPasscode ? moderatorPasscode.trim() : '',
+    uploadsPaused: false,
     welcomeMessage: welcomeMessage || `¡Bienvenidos a ${name}! Comparte tus mejores recuerdos con nosotros.`,
     instructions: instructions || 'Sube fotos y videos desde tu teléfono para verlos en vivo en la pantalla del evento.',
     specialGreeting: req.body.specialGreeting || `🎉 ¡Bienvenidos a ${name}! 🥳`,
@@ -179,7 +212,7 @@ router.post('/', (req, res) => {
   });
 });
 
-// POST /api/events/:slug/verify-passcode - Verify host access
+// POST /api/events/:slug/verify-passcode - Verify host, moderator, or superadmin access
 router.post('/:slug/verify-passcode', (req, res) => {
   const { passcode } = req.body;
   const event = db.getEventBySlug(req.params.slug);
@@ -188,14 +221,28 @@ router.post('/:slug/verify-passcode', (req, res) => {
     return res.status(404).json({ success: false, error: 'Evento no encontrado' });
   }
 
-  if (event.hostPasscode && event.hostPasscode !== passcode) {
-    return res.status(401).json({ success: false, error: 'Código de anfitrión incorrecto' });
+  const access = db.verifyEventAccess(req.params.slug, passcode);
+  if (!access) {
+    return res.status(401).json({ success: false, error: 'Código de acceso incorrecto' });
   }
 
-  res.json({ success: true, authorized: true, event });
+  // Only return full passcodes if role is host or superadmin
+  const safeEvent = access.role === 'moderator'
+    ? (() => {
+        const { hostPasscode, moderatorPasscode, ...rest } = event;
+        return rest;
+      })()
+    : event;
+
+  res.json({
+    success: true,
+    authorized: true,
+    role: access.role,
+    event: safeEvent
+  });
 });
 
-// PUT /api/events/:slug - Update event config and theme
+// PUT /api/events/:slug - Update event config and theme (Only Host or SuperAdmin)
 router.put('/:slug', (req, res) => {
   const { passcode, ...updates } = req.body;
   const event = db.getEventBySlug(req.params.slug);
@@ -204,13 +251,44 @@ router.put('/:slug', (req, res) => {
     return res.status(404).json({ success: false, error: 'Evento no encontrado' });
   }
 
-  // Verify host authorization
-  if (event.hostPasscode && event.hostPasscode !== passcode) {
-    return res.status(401).json({ success: false, error: 'No autorizado. Código incorrecto.' });
+  // Verify host or superadmin authorization (moderators cannot edit event settings/theme)
+  const access = db.verifyEventAccess(req.params.slug, passcode);
+  if (!access || (access.role !== 'host' && access.role !== 'superadmin')) {
+    return res.status(401).json({ success: false, error: 'No autorizado. Solo el Anfitrión Principal puede modificar ajustes del evento.' });
   }
 
   const updated = db.updateEvent(req.params.slug, updates);
+
+  // Notify connected clients if uploadsPaused or event settings changed
+  const io = req.app.get('io');
+  if (io && updated) {
+    const { hostPasscode, moderatorPasscode, ...publicUpdated } = updated;
+    io.to(`event:${req.params.slug}`).emit('event_updated', publicUpdated);
+  }
+
   res.json({ success: true, message: 'Evento actualizado exitosamente', event: updated });
+});
+
+// DELETE /api/events/:slug - Delete event and all its media (SuperAdmin Master Passcode ONLY)
+router.delete('/:slug', (req, res) => {
+  const { masterPasscode } = req.body;
+  const currentMaster = db.getMasterPasscode();
+
+  if (!masterPasscode || masterPasscode !== currentMaster) {
+    return res.status(401).json({ success: false, error: 'No autorizado. Solo el Administrador del Sistema con Clave Maestra puede eliminar un evento.' });
+  }
+
+  const event = db.getEventBySlug(req.params.slug);
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+  }
+
+  const deleted = db.deleteEvent(req.params.slug);
+  if (!deleted) {
+    return res.status(500).json({ success: false, error: 'No se pudo eliminar el evento' });
+  }
+
+  res.json({ success: true, message: `El evento "${event.name}" y todos sus archivos fueron eliminados.` });
 });
 
 // GET /api/events/:slug/stats - Summary statistics

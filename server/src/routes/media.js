@@ -74,11 +74,30 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
     return res.status(404).json({ success: false, error: 'Evento no encontrado' });
   }
 
+  if (event.uploadsPaused) {
+    for (const file of (req.files || [])) {
+      try { fs.unlinkSync(file.path); } catch (e) {}
+    }
+    return res.status(403).json({
+      success: false,
+      error: 'La subida de nuevas fotos y videos para este evento se encuentra pausada por el anfitrión.'
+    });
+  }
+
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ success: false, error: 'No se recibieron archivos para subir' });
   }
 
   const { uploaderName, caption } = req.body;
+  const cleanUploaderName = (uploaderName || '').trim();
+  if (!cleanUploaderName) {
+    // Clean up uploaded files if name was missing
+    for (const file of req.files) {
+      try { fs.unlinkSync(file.path); } catch (e) {}
+    }
+    return res.status(400).json({ success: false, error: 'Por favor ingresa tu nombre o apodo para compartir tus recuerdos' });
+  }
+
   const initialStatus = event.requireModeration ? 'pending' : 'approved';
 
   const savedItems = [];
@@ -104,7 +123,7 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
       mimeType: file.mimetype,
       isVideo,
       size: file.size,
-      uploaderName: (uploaderName && uploaderName.trim()) || 'Invitado anónimo',
+      uploaderName: cleanUploaderName,
       caption: (caption && caption.trim()) || '',
       likes: 0,
       status: initialStatus
@@ -121,7 +140,7 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
     if (broadcastable.length > 0) {
       io.to(`event:${slug}`).emit('new_media', {
         items: broadcastable,
-        uploader: uploaderName || 'Un invitado'
+        uploader: cleanUploaderName
       });
     }
 
@@ -157,13 +176,13 @@ router.post('/:id/like', (req, res) => {
   res.json({ success: true, likes: item.likes });
 });
 
-// PATCH /api/events/:slug/media/:id/status - Host moderates status (approved, hidden, pending)
+// PATCH /api/events/:slug/media/:id/status - Host/Moderator/SuperAdmin moderates status (approved, hidden, pending)
 router.patch('/:id/status', (req, res) => {
   const { id, slug } = req.params;
   const { status, passcode } = req.body;
 
-  const event = db.getEventBySlug(slug);
-  if (!event || (event.hostPasscode && event.hostPasscode !== passcode)) {
+  const access = db.verifyEventAccess(slug, passcode);
+  if (!access) {
     return res.status(401).json({ success: false, error: 'No autorizado' });
   }
 
@@ -184,13 +203,13 @@ router.patch('/:id/status', (req, res) => {
   res.json({ success: true, item: updated });
 });
 
-// DELETE /api/events/:slug/media/:id - Host deletes media item
+// DELETE /api/events/:slug/media/:id - Host/Moderator/SuperAdmin deletes media item
 router.delete('/:id', (req, res) => {
   const { id, slug } = req.params;
   const { passcode } = req.body;
 
-  const event = db.getEventBySlug(slug);
-  if (!event || (event.hostPasscode && event.hostPasscode !== passcode)) {
+  const access = db.verifyEventAccess(slug, passcode);
+  if (!access) {
     return res.status(401).json({ success: false, error: 'No autorizado' });
   }
 

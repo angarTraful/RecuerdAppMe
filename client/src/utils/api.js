@@ -38,6 +38,39 @@ export async function updateEvent(slug, updates, passcode) {
   return data.event;
 }
 
+export async function verifyMasterPasscode(masterPasscode) {
+  const res = await fetch('/api/events/master/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ masterPasscode })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Clave Maestra incorrecta');
+  return data.authorized;
+}
+
+export async function updateMasterPasscode(currentPasscode, newPasscode) {
+  const res = await fetch('/api/events/master/passcode', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPasscode, newPasscode })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al actualizar la Clave Maestra');
+  return data;
+}
+
+export async function deleteEvent(slug, masterPasscode) {
+  const res = await fetch(`/api/events/${slug}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ masterPasscode })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al eliminar el evento');
+  return data;
+}
+
 export async function verifyHostPasscode(slug, passcode) {
   const res = await fetch(`/api/events/${slug}/verify-passcode`, {
     method: 'POST',
@@ -46,7 +79,7 @@ export async function verifyHostPasscode(slug, passcode) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Código incorrecto');
-  return data.authorized;
+  return data;
 }
 
 export async function fetchEventStats(slug) {
