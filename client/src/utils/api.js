@@ -190,3 +190,7 @@ export async function deleteMediaItem(slug, mediaId, passcode) {
 export function getDownloadZipUrl(slug) {
   return `${API_BASE}/api/download/${slug}/download-all`;
 }
+
+export function getDownloadMessagesUrl(slug) {
+  return `${API_BASE}/api/download/${slug}/messages`;
+}

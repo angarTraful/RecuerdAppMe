@@ -69,4 +69,60 @@ router.get('/:slug/download-all', async (req, res) => {
   await archive.finalize();
 });
 
+// GET /api/download/:slug/messages - Download dedicated text guestbook of all messages
+router.get('/:slug/messages', (req, res) => {
+  const { slug } = req.params;
+  const event = db.getEventBySlug(slug);
+
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+  }
+
+  const mediaList = db.getMediaByEventSlug(slug, true);
+
+  // Filter items that have dedications/messages, plus list all uploaders
+  const withMessages = mediaList.filter((m) => (m.caption || '').trim().length > 0);
+  const totalUploads = mediaList.length;
+  const uniqueAuthors = new Set(mediaList.map((m) => m.uploaderName).filter(Boolean));
+
+  let text = `================================================================================\n`;
+  text += `                   LIBRO DE RECUERDOS Y DEDICATORIAS\n`;
+  text += `                         RecuerdAppMe Eventos\n`;
+  text += `================================================================================\n\n`;
+  text += `Evento: ${event.name}\n`;
+  text += `Fecha: ${event.date}\n`;
+  text += `Total de Recuerdos: ${totalUploads} (Fotos y Videos)\n`;
+  text += `Invitados participantes: ${uniqueAuthors.size}\n`;
+  text += `Mensajes y dedicatorias recibidas: ${withMessages.length}\n`;
+  text += `Fecha de exportación: ${new Date().toLocaleString('es-AR')}\n\n`;
+  text += `================================================================================\n`;
+  text += `                            DEDICATORIAS DE LOS INVITADOS\n`;
+  text += `================================================================================\n\n`;
+
+  if (withMessages.length === 0) {
+    text += `(Aún no se han registrado mensajes con texto para este evento)\n\n`;
+  } else {
+    withMessages.forEach((m, idx) => {
+      const dateFormatted = new Date(m.createdAt).toLocaleString('es-AR', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      });
+      const likesStr = m.likes ? ` • ${m.likes} Me Gusta ❤️` : '';
+      text += `[#${idx + 1}] De: ${m.uploaderName} (${dateFormatted}${likesStr})\n`;
+      text += `"${m.caption.trim()}"\n`;
+      text += `Adjunto: ${m.isVideo ? 'Video' : 'Foto'} (${m.originalName || m.filename})\n`;
+      text += `--------------------------------------------------------------------------------\n\n`;
+    });
+  }
+
+  text += `\n================================================================================\n`;
+  text += `                ¡Gracias a todos los invitados por ser parte! ✨\n`;
+  text += `                      Generado con amor por RecuerdAppMe\n`;
+  text += `================================================================================\n`;
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${slug}-dedicatorias.txt"`);
+  res.send(text);
+});
+
 export default router;

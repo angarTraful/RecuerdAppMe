@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck, Lock, Palette, Image as ImageIcon, Download, Settings,
   QrCode, Trash2, Eye, EyeOff, CheckCircle, RefreshCw, BarChart3, Users, Film,
-  Radio, Sparkles, Play, Pause, SkipForward, SkipBack, Cake, Send, LogOut, KeyRound
+  Radio, Sparkles, Play, Pause, SkipForward, SkipBack, Cake, Send, LogOut, KeyRound, FileText
 } from 'lucide-react';
 import {
   fetchEvent, fetchEventMedia, fetchEventStats, updateEvent,
-  verifyHostPasscode, updateMediaStatus, deleteMediaItem, getDownloadZipUrl
+  verifyHostPasscode, updateMediaStatus, deleteMediaItem, getDownloadZipUrl, getDownloadMessagesUrl
 } from '../utils/api';
 import { emitRemoteControl } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
@@ -318,14 +318,24 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange
           )}
 
           {isFullHost && (
-            <a
-              href={getDownloadZipUrl(slug)}
-              className="btn btn-secondary"
-              title="Descargar álbum completo en ZIP"
-              style={{ padding: '10px 16px', fontSize: '0.9rem' }}
-            >
-              <Download size={18} /> Descargar Álbum (ZIP)
-            </a>
+            <>
+              <a
+                href={getDownloadMessagesUrl(slug)}
+                className="btn btn-secondary"
+                title="Descargar libro de dedicatorias y mensajes en un archivo de texto (.txt)"
+                style={{ padding: '10px 16px', fontSize: '0.9rem' }}
+              >
+                <FileText size={18} /> Mensajes (.txt)
+              </a>
+              <a
+                href={getDownloadZipUrl(slug)}
+                className="btn btn-secondary"
+                title="Descargar álbum completo en ZIP con fotos y videos"
+                style={{ padding: '10px 16px', fontSize: '0.9rem' }}
+              >
+                <Download size={18} /> Álbum Completo (ZIP)
+              </a>
+            </>
           )}
 
           {onOpenLive && (
@@ -834,6 +844,38 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange
               <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: 4, marginLeft: 24 }}>
                 La galería seguirá abierta para que los invitados puedan ver, dar me gusta y descargar los recuerdos.
               </span>
+            </div>
+
+            {/* Direct Export Card */}
+            <div style={{
+              marginBottom: 24,
+              padding: '16px',
+              borderRadius: 12,
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--theme-primary, #D4AF37)' }}>
+                <Download size={18} /> Exportar Recuerdos y Dedicatorias
+              </div>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+                Descarga una copia de seguridad con todos los mensajes de cariño de tus invitados o el álbum fotográfico completo en máxima calidad.
+              </p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <a
+                  href={getDownloadMessagesUrl(slug)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.85rem', padding: '8px 14px' }}
+                >
+                  <FileText size={16} /> Descargar Libro de Dedicatorias (.txt)
+                </a>
+                <a
+                  href={getDownloadZipUrl(slug)}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.85rem', padding: '8px 14px' }}
+                >
+                  <Download size={16} /> Descargar Álbum Completo (ZIP)
+                </a>
+              </div>
             </div>
 
             <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ padding: '12px 24px' }}>

@@ -176,20 +176,34 @@ export default function Navbar({
             )}
           </div>
         ) : event ? (
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '6px 14px',
-            borderRadius: 20,
-            background: 'rgba(var(--primary-rgb), 0.12)',
-            border: '1px solid rgba(var(--primary-rgb), 0.25)',
-            color: 'var(--theme-primary, #D4AF37)',
-            fontSize: '0.8rem',
-            fontWeight: 700
-          }}>
-            <Sparkles size={14} /> Galería en Vivo
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onTabChange) {
+                onTabChange('live');
+              } else {
+                window.location.hash = `#/e/${event.slug}/live`;
+              }
+            }}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              borderRadius: 20,
+              background: 'rgba(var(--primary-rgb), 0.16)',
+              border: '1px solid rgba(var(--primary-rgb), 0.4)',
+              color: 'var(--theme-primary, #D4AF37)',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            title="Ver presentación de fotos en vivo"
+          >
+            <Tv size={14} /> Ver en Vivo
+          </button>
         ) : null}
       </div>
     </header>

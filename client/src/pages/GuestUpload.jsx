@@ -208,14 +208,21 @@ export default function GuestUpload({ slug, isEventAdmin = false, onOpenLive, on
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
-              {isEventAdmin && onOpenLive && (
+              {onOpenLive && (
                 <button
+                  type="button"
                   onClick={onOpenLive}
                   className="btn btn-secondary"
-                  style={{ backdropFilter: 'blur(10px)', padding: '8px 14px', fontSize: '0.85rem' }}
-                  title="Abrir proyector en vivo"
+                  style={{
+                    backdropFilter: 'blur(10px)',
+                    padding: '8px 14px',
+                    fontSize: '0.85rem',
+                    background: 'rgba(0, 0, 0, 0.45)',
+                    border: '1px solid rgba(255, 255, 255, 0.18)'
+                  }}
+                  title="Ver presentación de fotos en vivo"
                 >
-                  <Tv size={16} /> <span className="hide-mobile">Proyector</span>
+                  <Tv size={16} /> <span>Ver en Vivo</span>
                 </button>
               )}
             </div>
