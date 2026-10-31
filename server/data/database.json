@@ -51,5 +51,35 @@
       "id": "med-1793372202253-muet8",
       "createdAt": "2026-10-30T14:56:42.253Z"
     }
+  ],
+  "dedications": [
+    {
+      "id": "ded-1793435627890-p9r01",
+      "slug": "cumple-de-joaco",
+      "author": "Tio",
+      "message": "fdsfsfdsfs",
+      "createdAt": "2026-10-31T08:33:47.890Z"
+    },
+    {
+      "id": "ded-1793435627874-zfhp4",
+      "slug": "cumple-de-joaco",
+      "author": "Tio",
+      "message": "fdsfsfdsfs",
+      "createdAt": "2026-10-31T08:33:47.874Z"
+    },
+    {
+      "id": "ded-1793435591281-kc4j7",
+      "slug": "cumple-de-joaco",
+      "author": "Tio",
+      "message": "sdassadas",
+      "createdAt": "2026-10-31T08:33:11.281Z"
+    },
+    {
+      "id": "ded-1793435591267-zwoq4",
+      "slug": "cumple-de-joaco",
+      "author": "Tio",
+      "message": "sdassadas",
+      "createdAt": "2026-10-31T08:33:11.267Z"
+    }
   ]
 }
