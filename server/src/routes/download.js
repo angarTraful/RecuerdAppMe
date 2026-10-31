@@ -52,7 +52,6 @@ router.get('/:slug/download-all', async (req, res) => {
 
   // Also add a readable TXT or JSON with dedications and guestbook
   const dedications = db.getDedicationsByEventSlug(slug);
-  const mediaList = db.getMediaByEventSlug(slug, true);
 
   const guestbookTxt = `=== LIBRO DE RECUERDOS Y DEDICATORIAS ===\n` +
     `Evento: ${event.name}\nFecha: ${event.date}\nTotal de recuerdos multimedia: ${mediaList.length}\nTotal de saludos y dedicatorias: ${dedications.length}\n\n` +
