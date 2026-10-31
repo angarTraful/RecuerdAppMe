@@ -32,6 +32,8 @@ export default function LiveSlideshow({ slug, onExit }) {
   // New features state
   const [flashFiestaItem, setFlashFiestaItem] = useState(null);
   const [flashFiestaRemaining, setFlashFiestaRemaining] = useState(8);
+  const [liveDedication, setLiveDedication] = useState(null);
+  const [dedicationRemaining, setDedicationRemaining] = useState(5);
   const [liveReactions, setLiveReactions] = useState([]);
   const [greetingText, setGreetingText] = useState('');
   const [remoteToast, setRemoteToast] = useState(null);
@@ -39,6 +41,7 @@ export default function LiveSlideshow({ slug, onExit }) {
   const controlsTimeoutRef = useRef(null);
   const videoRef = useRef(null);
   const flashTimerRef = useRef(null);
+  const dedicationTimerRef = useRef(null);
   const mediaListRef = useRef([]);
   const currentIndexRef = useRef(0);
   const soundEffectsRef = useRef(true);
@@ -190,8 +193,15 @@ export default function LiveSlideshow({ slug, onExit }) {
       }
     };
 
+    const handleNewDedication = (dedication) => {
+      if (dedication && dedication.message) {
+        triggerDedicationPopup(dedication);
+      }
+    };
+
     socket.on('connect', handleConnect);
     socket.on('new_media', handleNewMedia);
+    socket.on('new_dedication', handleNewDedication);
     socket.on('live_reaction', handleLiveReaction);
     socket.on('remote_command', handleRemoteCommand);
     socket.on('media_liked', handleMediaLiked);
@@ -200,10 +210,12 @@ export default function LiveSlideshow({ slug, onExit }) {
     return () => {
       socket.off('connect', handleConnect);
       socket.off('new_media', handleNewMedia);
+      socket.off('new_dedication', handleNewDedication);
       socket.off('live_reaction', handleLiveReaction);
       socket.off('remote_command', handleRemoteCommand);
       socket.off('media_liked', handleMediaLiked);
       socket.off('media_deleted', handleMediaDeleted);
+      if (dedicationTimerRef.current) clearInterval(dedicationTimerRef.current);
       leaveEventRoom(slug);
     };
   }, [slug, handleNext, handlePrev]);
@@ -299,6 +311,32 @@ export default function LiveSlideshow({ slug, onExit }) {
     }, 1000);
   };
 
+  // Trigger the 5-second Standalone Dedication presentation takeover
+  const triggerDedicationPopup = (dedication) => {
+    if (!dedication) return;
+
+    if (dedicationTimerRef.current) clearInterval(dedicationTimerRef.current);
+
+    setLiveDedication(dedication);
+    setDedicationRemaining(5);
+
+    if (soundEffectsRef.current) {
+      playCelebrationChime();
+    }
+
+    launchPartyConfetti();
+
+    let remaining = 5;
+    dedicationTimerRef.current = setInterval(() => {
+      remaining -= 1;
+      setDedicationRemaining(remaining);
+      if (remaining <= 0) {
+        clearInterval(dedicationTimerRef.current);
+        setLiveDedication(null);
+      }
+    }, 1000);
+  };
+
   const showNotificationToast = (text) => {
     setRemoteToast(text);
     setTimeout(() => setRemoteToast(null), 5000);
@@ -306,7 +344,7 @@ export default function LiveSlideshow({ slug, onExit }) {
 
   // Timer for advancing slides in normal hybrid mode
   useEffect(() => {
-    if (!isPlaying || mediaList.length <= 1 || flashFiestaItem) return;
+    if (!isPlaying || mediaList.length <= 1 || flashFiestaItem || liveDedication) return;
 
     const currentItem = mediaList[currentIndex];
     const slideDuration = currentItem?.isVideo ? 14000 : intervalSec * 1000;
@@ -528,6 +566,110 @@ export default function LiveSlideshow({ slug, onExit }) {
                   "{flashFiestaItem.caption}"
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 💌 EFECTO SALUDO EN PANTALLA GIGANTE (5s Dedicated Takeover) */}
+      {liveDedication && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(5, 7, 10, 0.88)',
+            backdropFilter: 'blur(22px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1045,
+            animation: 'fadeIn 0.3s ease-out',
+            padding: 24
+          }}
+        >
+          {/* Top festive badge */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'linear-gradient(135deg, #EC4899, #F59E0B)',
+            color: '#FFFFFF',
+            padding: '10px 28px',
+            borderRadius: 30,
+            fontWeight: 900,
+            fontSize: '1.25rem',
+            marginBottom: 24,
+            boxShadow: '0 6px 30px rgba(236, 72, 153, 0.6)'
+          }}>
+            <span>💌</span> ¡NUEVO SALUDO EN PANTALLA! ({dedicationRemaining}s)
+          </div>
+
+          {/* Dedication Card */}
+          <div
+            className="glass-card"
+            style={{
+              maxWidth: 760,
+              width: '92%',
+              padding: '40px 36px',
+              borderRadius: 24,
+              textAlign: 'center',
+              boxShadow: '0 25px 70px rgba(0,0,0,0.95), 0 0 60px rgba(236, 72, 153, 0.45)',
+              border: '2px solid rgba(236, 72, 153, 0.85)',
+              position: 'relative'
+            }}
+          >
+            <div style={{
+              fontSize: 'clamp(1.6rem, 3.8vw, 2.6rem)',
+              fontFamily: 'var(--font-heading, inherit)',
+              fontWeight: 800,
+              color: '#FFFFFF',
+              lineHeight: 1.35,
+              marginBottom: 24,
+              textShadow: '0 2px 10px rgba(0,0,0,0.6)'
+            }}>
+              "{liveDedication.message}"
+            </div>
+
+            <div style={{
+              fontSize: '1.3rem',
+              fontWeight: 700,
+              color: 'var(--theme-primary, #D4AF37)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              flexWrap: 'wrap'
+            }}>
+              <span style={{ color: 'var(--theme-secondary, #E8D5B5)' }}>Con cariño de:</span>
+              <span style={{
+                color: '#FFFFFF',
+                background: 'rgba(255, 255, 255, 0.1)',
+                padding: '4px 14px',
+                borderRadius: 20
+              }}>
+                {liveDedication.author}
+              </span>
+              <span>❤️✨</span>
+            </div>
+
+            {/* Countdown bar */}
+            <div style={{
+              width: '100%',
+              height: 6,
+              background: 'rgba(255, 255, 255, 0.12)',
+              borderRadius: 3,
+              marginTop: 28,
+              overflow: 'hidden'
+            }}>
+              <div
+                style={{
+                  width: `${(dedicationRemaining / 5) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #EC4899, #F59E0B)',
+                  transition: 'width 1s linear'
+                }}
+              />
             </div>
           </div>
         </div>

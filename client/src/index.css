@@ -590,23 +590,85 @@ textarea.form-control {
 
 /* Printable Tent Cards / Mesas */
 @media print {
+  @page {
+    size: auto;
+    margin: 10mm;
+  }
+
+  /* Reset document and background */
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide everything by default */
   body * {
     visibility: hidden;
   }
 
+  /* Reset modal overlays so they don't clip or center with fixed positions */
+  .modal-backdrop {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    inset: auto !important;
+  }
+
+  .modal-content {
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Show ONLY the printable card area */
   .printable-card-area,
   .printable-card-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
   .printable-card-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 20px;
-    background: white !important;
-    color: #111 !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 480px !important;
+    margin: 20px auto !important;
+    padding: 36px 28px !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: 2px dashed #9CA3AF !important;
+    border-radius: 20px !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: block !important;
+  }
+
+  .printable-card-area img,
+  .printable-card-area svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Hide buttons, link inputs and close icons in print */
+  .modal-content > button,
+  .modal-content > div:last-child,
+  .modal-content > div:nth-last-child(2),
+  .modal-content > div:first-of-type {
+    display: none !important;
   }
 }

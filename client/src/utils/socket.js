@@ -42,6 +42,11 @@ export function emitReaction(slug, emoji, uploaderName) {
   s.emit('send_reaction', { slug, emoji, uploaderName });
 }
 
+export function emitDedication(slug, author, message) {
+  const s = getSocket();
+  s.emit('send_dedication', { slug, author, message });
+}
+
 export function emitRemoteControl(slug, action, payload = {}) {
   const s = getSocket();
   s.emit('remote_control', { slug, action, payload });

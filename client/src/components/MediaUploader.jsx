@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Camera, Image as ImageIcon, Video, X, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { UploadCloud, Camera, Image as ImageIcon, Video, X, CheckCircle, AlertCircle, Sparkles, Hash } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { uploadMediaFiles } from '../utils/api';
+
+const QUICK_TAGS = ['#Pista', '#Amigos', '#Familia', '#Mesa', '#Selfie', '#Brindis', '#Carioca'];
 
 export default function MediaUploader({
   slug,
@@ -14,7 +16,7 @@ export default function MediaUploader({
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [uploaderName, setUploaderName] = useState(() => guestName || localStorage.getItem('recuerdapp_name') || '');
-  const [caption, setCaption] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState(null);
@@ -98,6 +100,19 @@ export default function MediaUploader({
     }
   };
 
+  const handleToggleTag = (tag) => {
+    const currentTags = tagsInput
+      .split(/[\s,]+/)
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    if (currentTags.includes(tag)) {
+      setTagsInput(currentTags.filter(t => t !== tag).join(' '));
+    } else {
+      setTagsInput([...currentTags, tag].join(' '));
+    }
+  };
+
   const performUpload = async (nameToUse) => {
     setIsUploading(true);
     setUploadProgress(0);
@@ -108,8 +123,9 @@ export default function MediaUploader({
         slug,
         selectedFiles,
         nameToUse,
-        caption,
-        (progress) => setUploadProgress(progress)
+        '',
+        (progress) => setUploadProgress(progress),
+        tagsInput
       );
 
       // Trigger celebration confetti
@@ -131,7 +147,7 @@ export default function MediaUploader({
       previews.forEach((p) => URL.revokeObjectURL(p.url));
       setSelectedFiles([]);
       setPreviews([]);
-      setCaption('');
+      setTagsInput('');
 
       if (onUploadSuccess) {
         onUploadSuccess(result.items);
@@ -410,16 +426,65 @@ export default function MediaUploader({
           </div>
         )}
 
-        {/* Inputs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          <div className="form-group" style={{ marginBottom: 12 }}>
+        {/* Hashtags Input & Category Badges */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Hash size={16} color="var(--theme-primary, #D4AF37)" />
+              <span>Hashtags para clasificar tus fotos:</span>
+            </label>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Opcional</span>
+          </div>
+
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Ej. #Pista #Mesa3 #Amigos..."
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+            disabled={isUploading}
+            style={{ marginBottom: 8 }}
+          />
+
+          {/* Quick Clickable Suggestions */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: 2 }}>Sugeridos:</span>
+            {QUICK_TAGS.map((tag) => {
+              const isSelected = tagsInput.toLowerCase().includes(tag.toLowerCase());
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => handleToggleTag(tag)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 14,
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    border: isSelected ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255, 255, 255, 0.15)',
+                    background: isSelected ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                    color: isSelected ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* If guest name is not yet entered, prompt inline as fallback */}
+        {!uploaderName.trim() && (
+          <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Tu Nombre o Apodo *:</label>
             <input
               ref={nameInputRef}
               type="text"
               required
               className="form-control"
-              placeholder="Ej. Mesa 1, Marcela Flores, Gonzalo, Familia Garcia..."
+              placeholder="Ej. Mesa 1, Marcela, Familia Gómez..."
               value={uploaderName}
               onChange={(e) => {
                 setUploaderName(e.target.value);
@@ -428,19 +493,7 @@ export default function MediaUploader({
               disabled={isUploading}
             />
           </div>
-
-          <div className="form-group" style={{ marginBottom: 12 }}>
-            <label className="form-label">Dedicatoria o Mensaje (Opcional):</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Ej. ¡Muchas felicidades en su día! ❤️"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              disabled={isUploading}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Progress bar */}
         {isUploading && (

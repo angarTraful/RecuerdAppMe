@@ -97,6 +97,24 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Real-time dedications / greetings sent by guests to the live screen
+  socket.on('send_dedication', ({ slug, author, message }) => {
+    if (!slug || !message || !author) return;
+    const event = db.getEventBySlug(slug);
+    if (!event || event.uploadsPaused) return;
+    const cleanAuthor = String(author).trim();
+    const cleanMessage = String(message).trim();
+    if (!cleanAuthor || !cleanMessage) return;
+
+    const saved = db.addDedication({
+      slug,
+      author: cleanAuthor,
+      message: cleanMessage
+    });
+
+    io.to(`event:${slug}`).emit('new_dedication', saved);
+  });
+
   // Remote control commands sent by host smartphone to the projector screen
   socket.on('remote_control', ({ slug, action, payload }) => {
     if (!slug || !action) return;

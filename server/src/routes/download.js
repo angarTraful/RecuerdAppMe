@@ -50,21 +50,21 @@ router.get('/:slug/download-all', async (req, res) => {
     }
   }
 
-  // Also add a readable TXT or JSON with captions and guest dedications
-  const guestbook = mediaList.map(m => ({
-    autor: m.uploaderName,
-    mensaje: m.caption || '(Sin dedicatoria)',
-    archivo: m.filename || m.originalName,
-    tipo: m.isVideo ? 'Video' : 'Foto',
-    fecha: m.createdAt
-  }));
+  // Also add a readable TXT or JSON with dedications and guestbook
+  const dedications = db.getDedicationsByEventSlug(slug);
+  const mediaList = db.getMediaByEventSlug(slug, true);
 
   const guestbookTxt = `=== LIBRO DE RECUERDOS Y DEDICATORIAS ===\n` +
-    `Evento: ${event.name}\nFecha: ${event.date}\nTotal de recuerdos: ${mediaList.length}\n\n` +
-    guestbook.map(g => `[${g.fecha}] ${g.autor}: "${g.mensaje}" (${g.archivo})`).join('\n\n');
+    `Evento: ${event.name}\nFecha: ${event.date}\nTotal de recuerdos multimedia: ${mediaList.length}\nTotal de saludos y dedicatorias: ${dedications.length}\n\n` +
+    `--- SALUDOS Y DEDICATORIAS ---\n` +
+    (dedications.length > 0
+      ? dedications.map(d => `[${d.createdAt}] ${d.author}: "${d.message}"`).join('\n\n')
+      : '(No se registraron saludos escritos directos)') +
+    `\n\n--- ARCHIVOS MULTIMEDIA SUBIDOS ---\n` +
+    mediaList.map(m => `[${m.createdAt}] ${m.uploaderName} ${m.tags?.length ? `[${m.tags.join(' ')}]` : ''} - ${m.isVideo ? 'Video' : 'Foto'}: ${m.filename || m.originalName}`).join('\n');
 
-  archive.append(guestbookTxt, { name: 'DEDICATORIAS_DE_INVITADOS.txt' });
-  archive.append(JSON.stringify(guestbook, null, 2), { name: 'recuerdos_metadata.json' });
+  archive.append(guestbookTxt, { name: 'DEDICATORIAS_Y_SALUDOS.txt' });
+  archive.append(JSON.stringify({ dedications, media: mediaList }, null, 2), { name: 'recuerdos_metadata.json' });
 
   await archive.finalize();
 });
@@ -78,12 +78,14 @@ router.get('/:slug/messages', (req, res) => {
     return res.status(404).json({ success: false, error: 'Evento no encontrado' });
   }
 
+  const dedications = db.getDedicationsByEventSlug(slug);
   const mediaList = db.getMediaByEventSlug(slug, true);
 
-  // Filter items that have dedications/messages, plus list all uploaders
-  const withMessages = mediaList.filter((m) => (m.caption || '').trim().length > 0);
   const totalUploads = mediaList.length;
-  const uniqueAuthors = new Set(mediaList.map((m) => m.uploaderName).filter(Boolean));
+  const uniqueAuthors = new Set([
+    ...mediaList.map((m) => m.uploaderName),
+    ...dedications.map((d) => d.author)
+  ].filter(Boolean));
 
   let text = `================================================================================\n`;
   text += `                   LIBRO DE RECUERDOS Y DEDICATORIAS\n`;
@@ -92,27 +94,46 @@ router.get('/:slug/messages', (req, res) => {
   text += `Evento: ${event.name}\n`;
   text += `Fecha: ${event.date}\n`;
   text += `Total de Recuerdos: ${totalUploads} (Fotos y Videos)\n`;
+  text += `Total de Saludos y Dedicatorias: ${dedications.length}\n`;
   text += `Invitados participantes: ${uniqueAuthors.size}\n`;
-  text += `Mensajes y dedicatorias recibidas: ${withMessages.length}\n`;
   text += `Fecha de exportación: ${new Date().toLocaleString('es-AR')}\n\n`;
   text += `================================================================================\n`;
-  text += `                            DEDICATORIAS DE LOS INVITADOS\n`;
+  text += `                    1. DEDICATORIAS Y SALUDOS DE LOS INVITADOS\n`;
   text += `================================================================================\n\n`;
 
-  if (withMessages.length === 0) {
-    text += `(Aún no se han registrado mensajes con texto para este evento)\n\n`;
+  if (dedications.length === 0) {
+    text += `(Aún no se han registrado mensajes de saludo directos para este evento)\n\n`;
   } else {
-    withMessages.forEach((m, idx) => {
-      const dateFormatted = new Date(m.createdAt).toLocaleString('es-AR', {
+    dedications.forEach((d, idx) => {
+      const dateFormatted = new Date(d.createdAt).toLocaleString('es-AR', {
         dateStyle: 'short',
         timeStyle: 'short'
       });
-      const likesStr = m.likes ? ` • ${m.likes} Me Gusta ❤️` : '';
-      text += `[#${idx + 1}] De: ${m.uploaderName} (${dateFormatted}${likesStr})\n`;
-      text += `"${m.caption.trim()}"\n`;
-      text += `Adjunto: ${m.isVideo ? 'Video' : 'Foto'} (${m.originalName || m.filename})\n`;
+      text += `[#${idx + 1}] De: ${d.author} (${dateFormatted})\n`;
+      text += `"${d.message.trim()}"\n`;
       text += `--------------------------------------------------------------------------------\n\n`;
     });
+  }
+
+  // Also extract photos that had hashtags or captions (without repeating the same message 15 times)
+  const photosWithTags = mediaList.filter((m) => (m.tags && m.tags.length > 0) || (m.caption || '').trim().length > 0);
+  if (photosWithTags.length > 0) {
+    text += `\n================================================================================\n`;
+    text += `                 2. HASHTAGS Y EPÍGRAFES DE FOTOS / VIDEOS\n`;
+    text += `================================================================================\n\n`;
+
+    // Deduplicate by author + tags + caption
+    const seen = new Set();
+    photosWithTags.forEach((m) => {
+      const key = `${m.uploaderName}|${(m.tags || []).join(',')}|${m.caption || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const tagsStr = m.tags && m.tags.length > 0 ? ` [${m.tags.join(' ')}]` : '';
+      const captionStr = m.caption ? ` - "${m.caption.trim()}"` : '';
+      text += `• ${m.uploaderName}${tagsStr}${captionStr}\n`;
+    });
+    text += `\n`;
   }
 
   text += `\n================================================================================\n`;

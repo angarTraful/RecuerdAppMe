@@ -65,16 +65,20 @@ export default function QrCardModal({ event, onClose }) {
             background: '#FFFFFF',
             color: '#111827',
             borderRadius: 20,
-            padding: '32px 24px',
+            padding: '24px 20px',
             textAlign: 'center',
             boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
             marginBottom: 20,
             border: '2px solid #E5E7EB'
           }}
         >
+          <div className="print-cut-guide" style={{ fontSize: '0.72rem', color: '#9CA3AF', marginBottom: 10, letterSpacing: '0.5px' }}>
+            ✂️ Guía de corte / Tarjeta para centro de mesa
+          </div>
+
           <div style={{
             fontFamily: event.theme?.headingFont || 'Cinzel, serif',
-            fontSize: '1.4rem',
+            fontSize: '1.35rem',
             fontWeight: 800,
             color: '#111827',
             marginBottom: 4
@@ -83,10 +87,10 @@ export default function QrCardModal({ event, onClose }) {
           </div>
 
           <div style={{
-            fontSize: '0.95rem',
+            fontSize: '0.9rem',
             color: '#4B5563',
             fontStyle: 'italic',
-            marginBottom: 20
+            marginBottom: 16
           }}>
             ¡Ayúdanos a capturar cada momento inolvidable!
           </div>
@@ -94,16 +98,16 @@ export default function QrCardModal({ event, onClose }) {
           {/* QR Code */}
           <div style={{
             display: 'inline-block',
-            padding: 16,
+            padding: 12,
             background: '#FFFFFF',
             borderRadius: 16,
             boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             border: '1px solid #E5E7EB',
-            marginBottom: 16
+            marginBottom: 14
           }}>
             <QRCodeSVG
               value={fullUrl}
-              size={210}
+              size={185}
               level="H"
               includeMargin={false}
               fgColor="#0E1116"
@@ -111,11 +115,11 @@ export default function QrCardModal({ event, onClose }) {
           </div>
 
           <div style={{
-            fontSize: '0.88rem',
+            fontSize: '0.85rem',
             fontWeight: 600,
             color: '#1F2937',
-            lineHeight: 1.5,
-            maxWidth: 360,
+            lineHeight: 1.45,
+            maxWidth: 340,
             margin: '0 auto'
           }}>
             1. Abre la cámara de tu teléfono móvil<br />
@@ -124,10 +128,10 @@ export default function QrCardModal({ event, onClose }) {
           </div>
 
           <div style={{
-            marginTop: 18,
-            paddingTop: 12,
+            marginTop: 14,
+            paddingTop: 10,
             borderTop: '1px dashed #D1D5DB',
-            fontSize: '0.78rem',
+            fontSize: '0.75rem',
             color: '#6B7280',
             fontWeight: 500
           }}>

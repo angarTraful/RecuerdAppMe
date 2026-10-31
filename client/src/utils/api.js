@@ -113,7 +113,7 @@ export async function fetchEventMedia(slug, isAdmin = false) {
   return (data.media || []).map(formatMediaItem);
 }
 
-export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress) {
+export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress, tags) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
@@ -123,6 +123,9 @@ export function uploadMediaFiles(slug, files, uploaderName, caption, onProgress)
     }
     formData.append('uploaderName', uploaderName || '');
     formData.append('caption', caption || '');
+    if (tags) {
+      formData.append('tags', Array.isArray(tags) ? tags.join(' ') : tags);
+    }
 
     xhr.open('POST', `${API_BASE}/api/events/${slug}/media/upload`);
 
@@ -193,4 +196,22 @@ export function getDownloadZipUrl(slug) {
 
 export function getDownloadMessagesUrl(slug) {
   return `${API_BASE}/api/download/${slug}/messages`;
+}
+
+export async function sendDedication(slug, author, message) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/dedications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ author, message })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al enviar saludo');
+  return data.dedication;
+}
+
+export async function fetchDedications(slug) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/dedications`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al cargar saludos');
+  return data.dedications || [];
 }

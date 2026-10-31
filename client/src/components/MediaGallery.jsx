@@ -1,14 +1,41 @@
 import React, { useState } from 'react';
-import { Heart, Play, Image as ImageIcon, MessageCircle, Video } from 'lucide-react';
+import { Heart, Play, Image as ImageIcon, MessageCircle, Video, Hash } from 'lucide-react';
 import { likeMediaItem } from '../utils/api';
 
 export default function MediaGallery({ media = [], slug, onSelectMedia }) {
   const [filter, setFilter] = useState('all'); // all, photos, videos
+  const [selectedTag, setSelectedTag] = useState('all');
   const [likedIds, setLikedIds] = useState(() => new Set());
 
+  // Extract all unique hashtags from media
+  const allHashtags = Array.from(
+    new Set(
+      media.flatMap((item) => {
+        if (Array.isArray(item.tags)) return item.tags;
+        if (typeof item.tags === 'string') return item.tags.split(/[\s,]+/).filter(Boolean);
+        const matches = (item.caption || '').match(/#[a-zA-Z0-9_\u00C0-\u017F]+/g);
+        return matches || [];
+      }).map((t) => (t.startsWith('#') ? t : `#${t}`).trim())
+    )
+  ).filter(Boolean);
+
   const filteredMedia = media.filter((item) => {
-    if (filter === 'photos') return !item.isVideo;
-    if (filter === 'videos') return item.isVideo;
+    // Type filter
+    if (filter === 'photos' && item.isVideo) return false;
+    if (filter === 'videos' && !item.isVideo) return false;
+
+    // Hashtag filter
+    if (selectedTag !== 'all') {
+      const itemTags = Array.isArray(item.tags)
+        ? item.tags.map((t) => t.toLowerCase())
+        : (item.tags || '').toLowerCase().split(/[\s,]+/);
+      const targetTag = selectedTag.toLowerCase();
+      const targetNoHash = targetTag.replace('#', '');
+      const hasTag = itemTags.some((t) => t === targetTag || t === targetNoHash);
+      const inCaption = (item.caption || '').toLowerCase().includes(targetTag);
+      if (!hasTag && !inCaption) return false;
+    }
+
     return true;
   });
 
@@ -97,6 +124,58 @@ export default function MediaGallery({ media = [], slug, onSelectMedia }) {
           </button>
         </div>
       </div>
+
+      {/* Hashtag Categories Filter */}
+      {allHashtags.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          overflowX: 'auto',
+          paddingBottom: 10,
+          marginBottom: 18
+        }}>
+          <button
+            type="button"
+            onClick={() => setSelectedTag('all')}
+            style={{
+              padding: '5px 12px',
+              borderRadius: 20,
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              border: selectedTag === 'all' ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255, 255, 255, 0.12)',
+              background: selectedTag === 'all' ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255, 255, 255, 0.04)',
+              color: selectedTag === 'all' ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            #Todos
+          </button>
+          {allHashtags.map((tag) => {
+            const isSelected = selectedTag.toLowerCase() === tag.toLowerCase();
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setSelectedTag(isSelected ? 'all' : tag)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 20,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  border: isSelected ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255, 255, 255, 0.12)',
+                  background: isSelected ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                  color: isSelected ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Grid */}
       {filteredMedia.length === 0 ? (
@@ -194,6 +273,25 @@ export default function MediaGallery({ media = [], slug, onSelectMedia }) {
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                   {item.uploaderName}
                 </div>
+                {item.tags && item.tags.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                    {item.tags.map((t, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          background: 'rgba(var(--primary-rgb), 0.35)',
+                          color: 'var(--theme-primary, #D4AF37)',
+                          padding: '1px 6px',
+                          borderRadius: 6
+                        }}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {item.caption && (
                   <div style={{
                     fontSize: '0.8rem',

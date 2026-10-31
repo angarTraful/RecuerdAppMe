@@ -4,6 +4,7 @@ import { fetchEvent, fetchEventMedia, formatMediaItem } from '../utils/api';
 import { getSocket, joinEventRoom, leaveEventRoom } from '../utils/socket';
 import { useTheme } from '../context/ThemeContext';
 import MediaUploader from '../components/MediaUploader';
+import GuestDedicationForm from '../components/GuestDedicationForm';
 import MediaGallery from '../components/MediaGallery';
 import Lightbox from '../components/Lightbox';
 import GuestReactionsBar from '../components/GuestReactionsBar';
@@ -206,26 +207,6 @@ export default function GuestUpload({ slug, isEventAdmin = false, onOpenLive, on
                 <span>📸 {media.length} recuerdos compartidos</span>
               </div>
             </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              {onOpenLive && (
-                <button
-                  type="button"
-                  onClick={onOpenLive}
-                  className="btn btn-secondary"
-                  style={{
-                    backdropFilter: 'blur(10px)',
-                    padding: '8px 14px',
-                    fontSize: '0.85rem',
-                    background: 'rgba(0, 0, 0, 0.45)',
-                    border: '1px solid rgba(255, 255, 255, 0.18)'
-                  }}
-                  title="Ver presentación de fotos en vivo"
-                >
-                  <Tv size={16} /> <span>Ver en Vivo</span>
-                </button>
-              )}
-            </div>
           </div>
         </div>
       </section>
@@ -338,6 +319,13 @@ export default function GuestUpload({ slug, isEventAdmin = false, onOpenLive, on
           <>
             {/* Live Guest Reaction Bar */}
             <GuestReactionsBar
+              slug={slug}
+              guestName={guestName}
+              onRequireName={(cb) => openNamePrompt(cb)}
+            />
+
+            {/* Standalone Dedication Greeting without Photo */}
+            <GuestDedicationForm
               slug={slug}
               guestName={guestName}
               onRequireName={(cb) => openNamePrompt(cb)}

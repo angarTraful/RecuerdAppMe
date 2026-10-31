@@ -88,7 +88,7 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
     return res.status(400).json({ success: false, error: 'No se recibieron archivos para subir' });
   }
 
-  const { uploaderName, caption } = req.body;
+  const { uploaderName, caption, tags } = req.body;
   const cleanUploaderName = (uploaderName || '').trim();
   if (!cleanUploaderName) {
     // Clean up uploaded files if name was missing
@@ -96,6 +96,21 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
       try { fs.unlinkSync(file.path); } catch (e) {}
     }
     return res.status(400).json({ success: false, error: 'Por favor ingresa tu nombre o apodo para compartir tus recuerdos' });
+  }
+
+  // Parse hashtags (e.g. "#Pista #Mesa1" or array)
+  let parsedTags = [];
+  if (Array.isArray(tags)) {
+    parsedTags = tags.map(t => String(t).trim()).filter(Boolean);
+  } else if (typeof tags === 'string' && tags.trim()) {
+    parsedTags = tags
+      .split(/[\s,]+/)
+      .map(t => {
+        const trimmed = t.trim();
+        if (!trimmed) return '';
+        return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+      })
+      .filter(Boolean);
   }
 
   const initialStatus = event.requireModeration ? 'pending' : 'approved';
@@ -125,6 +140,7 @@ router.post('/upload', upload.array('files', 20), (req, res) => {
       size: file.size,
       uploaderName: cleanUploaderName,
       caption: (caption && caption.trim()) || '',
+      tags: parsedTags,
       likes: 0,
       status: initialStatus
     });
@@ -176,14 +192,14 @@ router.post('/:id/like', (req, res) => {
   res.json({ success: true, likes: item.likes });
 });
 
-// PATCH /api/events/:slug/media/:id/status - Host/Moderator/SuperAdmin moderates status (approved, hidden, pending)
+// PATCH /api/events/:slug/media/:id/status - Only Host or SuperAdmin moderates status
 router.patch('/:id/status', (req, res) => {
   const { id, slug } = req.params;
   const { status, passcode } = req.body;
 
   const access = db.verifyEventAccess(slug, passcode);
-  if (!access) {
-    return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!access || (access.role !== 'host' && access.role !== 'superadmin')) {
+    return res.status(403).json({ success: false, error: 'No autorizado. Solo el Anfitrión Principal puede moderar recuerdos.' });
   }
 
   if (!['approved', 'hidden', 'pending'].includes(status)) {
@@ -203,14 +219,14 @@ router.patch('/:id/status', (req, res) => {
   res.json({ success: true, item: updated });
 });
 
-// DELETE /api/events/:slug/media/:id - Host/Moderator/SuperAdmin deletes media item
+// DELETE /api/events/:slug/media/:id - Only Host or SuperAdmin deletes media item
 router.delete('/:id', (req, res) => {
   const { id, slug } = req.params;
   const { passcode } = req.body;
 
   const access = db.verifyEventAccess(slug, passcode);
-  if (!access) {
-    return res.status(401).json({ success: false, error: 'No autorizado' });
+  if (!access || (access.role !== 'host' && access.role !== 'superadmin')) {
+    return res.status(403).json({ success: false, error: 'No autorizado. Solo el Anfitrión Principal puede eliminar recuerdos.' });
   }
 
   const deleted = db.deleteMediaItem(id);

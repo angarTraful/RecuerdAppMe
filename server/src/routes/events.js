@@ -322,4 +322,48 @@ router.get('/:slug/stats', (req, res) => {
   });
 });
 
+// GET /api/events/:slug/dedications - List dedications
+router.get('/:slug/dedications', (req, res) => {
+  const event = db.getEventBySlug(req.params.slug);
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+  }
+
+  const dedications = db.getDedicationsByEventSlug(req.params.slug);
+  res.json({ success: true, dedications });
+});
+
+// POST /api/events/:slug/dedications - Submit a dedication / greeting
+router.post('/:slug/dedications', (req, res) => {
+  const event = db.getEventBySlug(req.params.slug);
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+  }
+
+  if (event.uploadsPaused) {
+    return res.status(403).json({ success: false, error: 'El envío de mensajes se encuentra pausado por el anfitrión.' });
+  }
+
+  const { author, message } = req.body;
+  const cleanAuthor = (author || '').trim();
+  const cleanMessage = (message || '').trim();
+
+  if (!cleanAuthor || !cleanMessage) {
+    return res.status(400).json({ success: false, error: 'El nombre y el mensaje son requeridos.' });
+  }
+
+  const saved = db.addDedication({
+    slug: req.params.slug,
+    author: cleanAuthor,
+    message: cleanMessage
+  });
+
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`event:${req.params.slug}`).emit('new_dedication', saved);
+  }
+
+  res.status(201).json({ success: true, dedication: saved });
+});
+
 export default router;

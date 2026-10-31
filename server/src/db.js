@@ -235,6 +235,7 @@ export const db = {
 
     data.events = data.events.filter(e => e.slug.toLowerCase() !== slug.toLowerCase());
     data.media = data.media.filter(m => m.eventId !== event.id);
+    data.dedications = (data.dedications || []).filter(d => d.slug.toLowerCase() !== slug.toLowerCase());
     writeDb(data);
 
     // Clean up physical uploads folder for this event
@@ -307,5 +308,28 @@ export const db = {
     item.likes = (item.likes || 0) + 1;
     writeDb(data);
     return item;
+  },
+
+  // Dedications / Text Greetings
+  getDedicationsByEventSlug(slug) {
+    const data = readDb();
+    return (data.dedications || [])
+      .filter(d => d.slug.toLowerCase() === slug.toLowerCase())
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+
+  addDedication(item) {
+    const data = readDb();
+    if (!data.dedications) data.dedications = [];
+    const newDedication = {
+      id: item.id || `ded-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      slug: item.slug.toLowerCase(),
+      author: (item.author || 'Un invitado').trim(),
+      message: (item.message || '').trim(),
+      createdAt: item.createdAt || new Date().toISOString()
+    };
+    data.dedications.unshift(newDedication);
+    writeDb(data);
+    return newDedication;
   }
 };

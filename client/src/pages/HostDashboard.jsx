@@ -464,7 +464,7 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange
             fontWeight: activeTab === 'moderation' ? 700 : 500
           }}
         >
-          <ImageIcon size={16} /> Moderar Galería ({mediaList.length})
+          <ImageIcon size={16} /> {isFullHost ? `Moderar Galería (${mediaList.length})` : `Ver Galería (${mediaList.length})`}
         </button>
 
         {isFullHost && (
@@ -620,14 +620,30 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange
       {/* Tab: Moderation */}
       {activeTab === 'moderation' && (
         <div>
-          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
-              Administra las fotos que aparecen en el proyector y en la galería pública. Puedes ocultar o eliminar cualquier elemento.
+              {isFullHost
+                ? 'Administra las fotos que aparecen en el proyector y en la galería pública. Puedes ocultar o eliminar cualquier elemento.'
+                : 'Explora todas las fotos y videos del evento en tiempo real. Modo visualización para DJ/Moderador.'}
             </p>
             <button onClick={loadDashboard} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
               <RefreshCw size={14} /> Actualizar
             </button>
           </div>
+
+          {!isFullHost && (
+            <div style={{
+              padding: '12px 16px',
+              borderRadius: 10,
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              marginBottom: 18,
+              fontSize: '0.85rem',
+              color: 'var(--text-muted)'
+            }}>
+              🎧 <strong>Modo DJ / Visualización:</strong> Puedes ver en vivo todos los recuerdos subidos y sus dedicatorias. Las acciones de moderar (aprobar, ocultar y eliminar) están reservadas al Anfitrión Principal.
+            </div>
+          )}
 
           <div style={{
             display: 'grid',
@@ -668,34 +684,36 @@ export default function HostDashboard({ slug, onOpenQr, onOpenLive, onAuthChange
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    {item.status === 'approved' ? (
-                      <button
-                        onClick={() => handleToggleStatus(item, 'hidden')}
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                      >
-                        <EyeOff size={14} /> Ocultar
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleToggleStatus(item, 'approved')}
-                        className="btn btn-primary"
-                        style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                      >
-                        <Eye size={14} /> Aprobar
-                      </button>
-                    )}
+                  {isFullHost && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      {item.status === 'approved' ? (
+                        <button
+                          onClick={() => handleToggleStatus(item, 'hidden')}
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                        >
+                          <EyeOff size={14} /> Ocultar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleStatus(item, 'approved')}
+                          className="btn btn-primary"
+                          style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                        >
+                          <Eye size={14} /> Aprobar
+                        </button>
+                      )}
 
-                    <button
-                      onClick={() => handleDeleteMedia(item.id)}
-                      className="btn btn-danger"
-                      style={{ padding: '6px 10px', fontSize: '0.8rem' }}
-                      title="Eliminar permanentemente"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => handleDeleteMedia(item.id)}
+                        className="btn btn-danger"
+                        style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                        title="Eliminar permanentemente"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
