@@ -88,12 +88,31 @@
       "autoDjEnabled": true,
       "currentPlaylistPreset": "cumbia-cuarteto",
       "acceptingRequests": true,
-      "isPlaying": true,
+      "isPlaying": false,
       "currentTrackId": "trk-1793682788823-au1on",
       "volume": 0.85
     }
   },
   "jukeboxTracks": [
+    {
+      "id": "trk-1793691039208-r6whi",
+      "eventSlug": "cumple-de-joaco",
+      "title": "inocente",
+      "artist": "Artista no especificado",
+      "genre": "Cachengue",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "coverUrl": null,
+      "spotifyUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T07:30:39.208Z"
+    },
     {
       "id": "trk-1793684110825-h0v7o",
       "eventSlug": "cumple-de-joaco",

@@ -122,3 +122,4 @@ export async function searchTracks(query, limit = 12) {
     }))
   };
 }
+
