@@ -1,6 +1,7 @@
 import express from 'express';
 import { db } from '../db.js';
 import { PRESET_PLAYLISTS } from '../constants/playlists.js';
+import { searchTracks, isSpotifyConfigured } from '../services/spotify.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -19,7 +20,18 @@ router.get('/', (req, res) => {
     success: true,
     settings,
     tracks,
-    presets: PRESET_PLAYLISTS
+    presets: PRESET_PLAYLISTS,
+    isSpotifyConfigured: isSpotifyConfigured()
+  });
+});
+
+// GET /api/events/:slug/jukebox/search - Search songs via Spotify or local catalog
+router.get('/search', async (req, res) => {
+  const { q } = req.query;
+  const searchResult = await searchTracks(q);
+  res.json({
+    success: true,
+    ...searchResult
   });
 });
 
@@ -44,7 +56,7 @@ router.post('/request', (req, res) => {
     return res.status(403).json({ success: false, error: 'Los pedidos de temas están pausados temporalmente por el DJ.' });
   }
 
-  const { title, artist, genre, requestedBy, previewUrl } = req.body;
+  const { title, artist, genre, requestedBy, previewUrl, coverUrl, spotifyUrl } = req.body;
   const cleanTitle = (title || '').trim();
   const cleanArtist = (artist || '').trim();
   const cleanAuthor = (requestedBy || 'Invitado anónimo').trim();
@@ -80,7 +92,9 @@ router.post('/request', (req, res) => {
     artist: cleanArtist || 'Artista no especificado',
     genre: genre || 'General',
     requestedBy: cleanAuthor,
-    previewUrl: previewUrl || null
+    previewUrl: previewUrl || null,
+    coverUrl: coverUrl || null,
+    spotifyUrl: spotifyUrl || null
   });
 
   const io = req.app.get('io');
@@ -247,3 +261,4 @@ router.post('/dj/action', (req, res) => {
 });
 
 export default router;
+

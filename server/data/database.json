@@ -81,5 +81,258 @@
       "message": "sdassadas",
       "createdAt": "2026-10-31T08:33:11.267Z"
     }
+  ],
+  "jukeboxSettings": {
+    "cumple-de-joaco": {
+      "eventSlug": "cumple-de-joaco",
+      "autoDjEnabled": true,
+      "currentPlaylistPreset": "cumbia-cuarteto",
+      "acceptingRequests": true,
+      "isPlaying": true,
+      "currentTrackId": "trk-1793682788823-au1on",
+      "volume": 0.85
+    }
+  },
+  "jukeboxTracks": [
+    {
+      "id": "trk-1793684110825-h0v7o",
+      "eventSlug": "cumple-de-joaco",
+      "title": "verano 98",
+      "artist": "los piojos",
+      "genre": "Rock",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:35:10.825Z"
+    },
+    {
+      "id": "trk-1793684053884-0cgm5",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Mi Perro Dinamita",
+      "artist": "Los Redondos",
+      "genre": "Rock",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:34:13.884Z"
+    },
+    {
+      "id": "trk-1793683728314-7nd1v",
+      "eventSlug": "cumple-de-joaco",
+      "title": "jurabas tu",
+      "artist": "Artista no especificado",
+      "genre": "Cuarteto",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:28:48.314Z"
+    },
+    {
+      "id": "trk-1793683694405-zodwa",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Ya No Vuelve",
+      "artist": "Luck Ra, La K'onga",
+      "genre": "Cuarteto",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:28:14.405Z"
+    },
+    {
+      "id": "trk-1793683688273-xltn9",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Universo Paralelo",
+      "artist": "La K'onga, Nahuel Pennisi",
+      "genre": "Cuarteto",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:28:08.273Z"
+    },
+    {
+      "id": "trk-1793683537859-siqhd",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Jijiji",
+      "artist": "Patricio Rey y sus Redonditos de Ricota",
+      "genre": "Rock",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "rejected",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:25:37.859Z"
+    },
+    {
+      "id": "trk-1793683526162-3osas",
+      "eventSlug": "cumple-de-joaco",
+      "title": "adicto",
+      "artist": "emanero",
+      "genre": "Cachengue",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:25:26.162Z"
+    },
+    {
+      "id": "trk-1793683499543-8008g",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Se Me Ha Perdido Un Corazón",
+      "artist": "Gilda",
+      "genre": "Cumbia",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:24:59.543Z"
+    },
+    {
+      "id": "trk-1793683431844-mzgb9",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Los del Espacio",
+      "artist": "LIT Killah, Duki, Tiago, Maria Becerra, Rusherking",
+      "genre": "Urbano",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:23:51.844Z"
+    },
+    {
+      "id": "trk-1793683226210-qo2bk",
+      "eventSlug": "cumple-de-joaco",
+      "title": "sabes",
+      "artist": "los del fuego",
+      "genre": "Cuarteto",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "played",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:20:26.210Z",
+      "playedAt": "2026-11-03T05:26:25.495Z"
+    },
+    {
+      "id": "trk-1793682918626-vpnzx",
+      "eventSlug": "cumple-de-joaco",
+      "title": "En la Intimidad",
+      "artist": "Emilia, Callejero Fino, Big One",
+      "genre": "Cachengue",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:15:18.626Z"
+    },
+    {
+      "id": "trk-1793682797528-bedq3",
+      "eventSlug": "cumple-de-joaco",
+      "title": "No Te Creas Tan Importante",
+      "artist": "Damas Gratis, Viru Kumbieron",
+      "genre": "Cumbia",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "queued",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:13:17.528Z"
+    },
+    {
+      "id": "trk-1793682788823-au1on",
+      "eventSlug": "cumple-de-joaco",
+      "title": "El Bombón Asesino",
+      "artist": "Los Palmeras",
+      "genre": "Cumbia",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "playing",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:13:08.824Z"
+    },
+    {
+      "id": "trk-1793682767770-0b577",
+      "eventSlug": "cumple-de-joaco",
+      "title": "Olvídala",
+      "artist": "Los Palmeras",
+      "genre": "Cumbia",
+      "requestedBy": "Tio",
+      "votes": 1,
+      "voters": [
+        "Tio"
+      ],
+      "status": "played",
+      "durationSec": 180,
+      "previewUrl": null,
+      "isAutoDj": false,
+      "createdAt": "2026-11-03T05:12:47.770Z",
+      "playedAt": "2026-11-03T05:21:15.779Z"
+    }
   ]
 }

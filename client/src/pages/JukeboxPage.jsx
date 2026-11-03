@@ -5,7 +5,14 @@ import {
   Share2, ArrowLeft, RefreshCw, X, Sliders, ExternalLink, ShieldCheck, Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { fetchJukebox, requestJukeboxSong, voteJukeboxSong, performDjAction, fetchEvent } from '../utils/api';
+import {
+  fetchJukebox,
+  requestJukeboxSong,
+  voteJukeboxSong,
+  performDjAction,
+  fetchEvent,
+  searchJukeboxTracks
+} from '../utils/api';
 import { getSocket, joinEventRoom } from '../utils/socket';
 import { startFestiveAudioLoop, stopAudio, setMasterVolume } from '../utils/audioPlayer';
 
@@ -26,11 +33,16 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
     all: []
   });
   const [presets, setPresets] = useState({});
+  const [isSpotifyConfigured, setIsSpotifyConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Guest Request Form state
   const [guestName, setGuestName] = useState(() => (localStorage.getItem('recuerdapp_name') || '').trim() || 'Un invitado');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchSource, setSearchSource] = useState('empty');
+
   const [customTitle, setCustomTitle] = useState('');
   const [customArtist, setCustomArtist] = useState('');
   const [customGenre, setCustomGenre] = useState('Cachengue');
@@ -146,12 +158,41 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
       setSettings(jukeData.settings || {});
       setTracks(jukeData.tracks || { playing: null, queued: [], played: [], rejected: [], all: [] });
       setPresets(jukeData.presets || {});
+      setIsSpotifyConfigured(Boolean(jukeData.isSpotifyConfigured));
     } catch (err) {
       console.error('Error loading jukebox data:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  // Debounced search via Spotify API or local catalog
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setSearchSource('empty');
+      return;
+    }
+
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await searchJukeboxTracks(slug, query);
+        if (res && res.success) {
+          setSearchResults(res.results || []);
+          setSearchSource(res.source || (isSpotifyConfigured ? 'spotify' : 'local'));
+        }
+      } catch (err) {
+        console.warn('Error searching tracks:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, slug, isSpotifyConfigured]);
 
   const handleRequestSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -189,8 +230,11 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
       const res = await requestJukeboxSong(slug, {
         title: song.title,
         artist: song.artist,
-        genre: song.genre,
-        requestedBy: guestName.trim() || 'Un invitado'
+        genre: song.genre || 'General',
+        requestedBy: guestName.trim() || 'Un invitado',
+        previewUrl: song.previewUrl || null,
+        coverUrl: song.coverUrl || null,
+        spotifyUrl: song.spotifyUrl || null
       });
 
       confetti({
@@ -198,6 +242,33 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
         spread: 50,
         origin: { y: 0.65 },
         colors: ['#D4AF37', '#F59E0B', '#EC4899']
+      });
+
+      setRequestSuccess(res.message);
+      setTimeout(() => setRequestSuccess(null), 4000);
+      loadData();
+    } catch (err) {
+      alert(err.message || 'Error al pedir canción');
+    }
+  };
+
+  const handleRequestSearchedTrack = async (track) => {
+    try {
+      const res = await requestJukeboxSong(slug, {
+        title: track.title,
+        artist: track.artist,
+        genre: track.genre || 'General',
+        requestedBy: guestName.trim() || 'Un invitado',
+        previewUrl: track.previewUrl || null,
+        coverUrl: track.coverUrl || null,
+        spotifyUrl: track.spotifyUrl || null
+      });
+
+      confetti({
+        particleCount: 60,
+        spread: 60,
+        origin: { y: 0.65 },
+        colors: ['#1DB954', '#D4AF37', '#F59E0B', '#EC4899']
       });
 
       setRequestSuccess(res.message);
@@ -466,10 +537,10 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              {/* Spinning Vinyl Graphic */}
+              {/* Spinning Vinyl Graphic with Album Cover */}
               <div style={{
-                width: 68,
-                height: 68,
+                width: 72,
+                height: 72,
                 borderRadius: '50%',
                 background: '#111318',
                 border: '3px solid var(--theme-primary, #D4AF37)',
@@ -478,14 +549,38 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
                 justifyContent: 'center',
                 position: 'relative',
                 animation: isPlayingAudio ? 'spin 3.5s linear infinite' : 'none',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.8)'
+                boxShadow: '0 4px 20px rgba(0,0,0,0.8)',
+                overflow: 'hidden',
+                flexShrink: 0
               }}>
+                {tracks.playing?.coverUrl ? (
+                  <img
+                    src={tracks.playing.coverUrl}
+                    alt="Cover"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: '50%',
+                    background: 'var(--theme-primary, #D4AF37)',
+                    border: '3px solid #111318'
+                  }} />
+                )}
+                {/* Center hole of vinyl */}
                 <div style={{
-                  width: 24,
-                  height: 24,
+                  position: 'absolute',
+                  width: 14,
+                  height: 14,
                   borderRadius: '50%',
-                  background: 'var(--theme-primary, #D4AF37)',
-                  border: '3px solid #111318'
+                  background: '#0E1116',
+                  border: '2px solid rgba(255,255,255,0.4)',
+                  zIndex: 2
                 }} />
               </div>
 
@@ -498,12 +593,18 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
                   fontWeight: 800,
                   color: isPlayingAudio ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
                   textTransform: 'uppercase',
-                  letterSpacing: '1px'
+                  letterSpacing: '1px',
+                  flexWrap: 'wrap'
                 }}>
                   <span>{isPlayingAudio ? '🔊 SONANDO AHORA EN LA PISTA' : '⏸️ EN PAUSA'}</span>
                   {tracks.playing?.genre && (
                     <span className="badge" style={{ fontSize: '0.7rem' }}>
                       {tracks.playing.genre}
+                    </span>
+                  )}
+                  {tracks.playing?.coverUrl && (
+                    <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: 8, background: '#1DB954', color: '#000', fontWeight: 900 }}>
+                      Spotify
                     </span>
                   )}
                 </div>
@@ -525,7 +626,7 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
             </div>
 
             {/* Quick Playback controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {activeMode === 'dj' && (
                 <>
                   <button
@@ -572,7 +673,29 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
                 </>
               )}
 
-              {/* YouTube / Spotify Direct Search Helper */}
+              {/* Spotify Link if available */}
+              {tracks.playing?.spotifyUrl && (
+                <a
+                  href={tracks.playing.spotifyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    color: '#1DB954',
+                    borderColor: 'rgba(29, 185, 84, 0.4)'
+                  }}
+                  title="Abrir en Spotify"
+                >
+                  <ExternalLink size={14} /> Spotify
+                </a>
+              )}
+
+              {/* YouTube / VirtualDJ Direct Search Helper */}
               {tracks.playing && (
                 <a
                   href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${tracks.playing.title} ${tracks.playing.artist}`)}`}
@@ -699,6 +822,35 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
                           {idx === 0 ? '👑' : `#${idx + 1}`}
                         </div>
 
+                        {/* Album Cover Thumbnail */}
+                        {track.coverUrl ? (
+                          <img
+                            src={track.coverUrl}
+                            alt="Cover"
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 8,
+                              objectFit: 'cover',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                              flexShrink: 0
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 8,
+                            background: 'rgba(255,255,255,0.06)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <Music size={18} color="var(--theme-primary, #D4AF37)" />
+                          </div>
+                        )}
+
                         <div>
                           <div style={{ fontWeight: 800, fontSize: '1rem', color: '#FFFFFF' }}>
                             {track.title}
@@ -740,100 +892,257 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
               )}
             </div>
 
-            {/* CURATED POPULAR SONGS (1-CLICK REQUEST) */}
+            {/* 🔍 EXPLORAR & BUSCADOR INTELIGENTE DE CANCIONES */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
-                  Explorar Temas Populares Listos para Pedir
-                </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 4px' }}>
+                    Explorar Temas Listos para Pedir 🎶
+                  </h3>
+                  <div>
+                    {isSpotifyConfigured ? (
+                      <span style={{
+                        fontSize: '0.76rem',
+                        padding: '3px 10px',
+                        borderRadius: 12,
+                        background: 'rgba(29, 185, 84, 0.15)',
+                        color: '#1DB954',
+                        border: '1px solid rgba(29, 185, 84, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontWeight: 700
+                      }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#1DB954' }} />
+                        Buscador Spotify Activo (Catálogo Mundial)
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: '0.76rem',
+                        padding: '3px 10px',
+                        borderRadius: 12,
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        color: '#F59E0B',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontWeight: 700
+                      }} title="Agrega SPOTIFY_CLIENT_ID y SPOTIFY_CLIENT_SECRET en server/.env para buscar millones de temas de Spotify">
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B' }} />
+                        Catálogo Local de Fiesta (Sin Spotify API)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 {/* Search Bar */}
-                <div style={{ position: 'relative', width: '100%', maxWidth: 260 }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: 300 }}>
                   <Search size={16} style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-muted)' }} />
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Buscar canción..."
+                    placeholder="Buscar canción, artista..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ paddingLeft: 36, paddingRight: 12, fontSize: '0.85rem' }}
+                    style={{ paddingLeft: 36, paddingRight: searchQuery ? 32 : 12, fontSize: '0.88rem' }}
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 4,
+                        display: 'flex'
+                      }}
+                      title="Limpiar búsqueda"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Genre Pills */}
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 10, marginBottom: 14 }}>
-                <button
-                  onClick={() => setSelectedPresetGenre('all')}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 16,
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    border: selectedPresetGenre === 'all' ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255,255,255,0.1)',
-                    background: selectedPresetGenre === 'all' ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
-                    color: selectedPresetGenre === 'all' ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Todos los géneros
-                </button>
-                {['Cachengue', 'Cuarteto', 'Cumbia', 'Retro Pop', 'Rock', 'EDM', 'Vals Clásico'].map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setSelectedPresetGenre(g)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: 16,
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      border: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255,255,255,0.1)',
-                      background: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
-                      color: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-
-              {/* Grid of Curated Songs */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                {filteredPresetTracks.slice(0, 18).map((song) => (
-                  <div
-                    key={song.id}
-                    className="glass-card"
-                    style={{
-                      padding: '12px 14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      borderRadius: 12
-                    }}
-                  >
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {song.title}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {song.artist}
-                      </div>
+              {/* SEARCH RESULTS VIEW (When query active) */}
+              {searchQuery.trim().length >= 2 ? (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--theme-secondary, #E8D5B5)', fontWeight: 700 }}>
+                      Resultados para "{searchQuery}" {searchSource === 'spotify' ? '🟢 (vía Spotify)' : '🟡 (Catálogo local)'}
                     </div>
-
-                    <button
-                      onClick={() => handleRequestPresetSong(song)}
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', flexShrink: 0 }}
-                      title="Pedir este tema"
-                    >
-                      <Plus size={14} /> Pedir
-                    </button>
+                    {isSearching && (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <RefreshCw size={14} className="spin" /> Buscando...
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+
+                  {isSearching ? (
+                    <div className="glass-card" style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <RefreshCw size={24} className="spin" style={{ margin: '0 auto 10px' }} />
+                      <p style={{ margin: 0 }}>Buscando temas en {isSpotifyConfigured ? 'Spotify' : 'el catálogo'}...</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                      {searchResults.map((track) => (
+                        <div
+                          key={track.id || track.uri || `${track.title}-${track.artist}`}
+                          className="glass-card"
+                          style={{
+                            padding: '12px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            borderRadius: 14,
+                            border: '1px solid rgba(255, 255, 255, 0.1)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, overflow: 'hidden' }}>
+                            {track.coverUrl ? (
+                              <img
+                                src={track.coverUrl}
+                                alt="Cover"
+                                style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
+                              />
+                            ) : (
+                              <div style={{ width: 48, height: 48, borderRadius: 8, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Music size={20} color="var(--theme-primary, #D4AF37)" />
+                              </div>
+                            )}
+
+                            <div style={{ overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                {track.title}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--theme-secondary, #E8D5B5)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                {track.artist}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                {track.durationSec ? `${formatSec(track.durationSec)} • ` : ''}
+                                {track.source === 'spotify' ? (
+                                  <span style={{ color: '#1DB954', fontWeight: 700 }}>Spotify</span>
+                                ) : (
+                                  <span>{track.genre || 'Fiesta'}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleRequestSearchedTrack(track)}
+                            className="btn btn-primary"
+                            style={{ padding: '8px 14px', fontSize: '0.82rem', flexShrink: 0, fontWeight: 700 }}
+                            title="Pedir canción"
+                          >
+                            <Plus size={14} /> Pedir
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="glass-card" style={{ padding: '30px 20px', textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 14px', fontSize: '0.92rem', color: 'var(--text-muted)' }}>
+                        No encontramos canciones para "<strong>{searchQuery}</strong>".
+                      </p>
+                      <button
+                        onClick={() => {
+                          setCustomTitle(searchQuery);
+                          setShowRequestModal(true);
+                        }}
+                        className="btn btn-secondary"
+                        style={{ padding: '10px 20px', fontSize: '0.88rem' }}
+                      >
+                        <Plus size={16} /> Pedir "{searchQuery}" como tema personalizado
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* PRESET POPULAR SONGS (When no query is typed) */
+                <div>
+                  {/* Genre Pills */}
+                  <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 10, marginBottom: 14 }}>
+                    <button
+                      onClick={() => setSelectedPresetGenre('all')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 16,
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        border: selectedPresetGenre === 'all' ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255,255,255,0.1)',
+                        background: selectedPresetGenre === 'all' ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
+                        color: selectedPresetGenre === 'all' ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Todos los géneros
+                    </button>
+                    {['Cachengue', 'Cuarteto', 'Cumbia', 'Retro Pop', 'Rock', 'EDM', 'Vals Clásico'].map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => setSelectedPresetGenre(g)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: 16,
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          border: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? '1px solid var(--theme-primary, #D4AF37)' : '1px solid rgba(255,255,255,0.1)',
+                          background: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? 'rgba(var(--primary-rgb), 0.25)' : 'rgba(255,255,255,0.05)',
+                          color: selectedPresetGenre.toLowerCase() === g.toLowerCase() ? 'var(--theme-primary, #D4AF37)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Grid of Curated Songs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+                    {filteredPresetTracks.slice(0, 18).map((song) => (
+                      <div
+                        key={song.id}
+                        className="glass-card"
+                        style={{
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          borderRadius: 12
+                        }}
+                      >
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {song.title}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {song.artist}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleRequestPresetSong(song)}
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', flexShrink: 0 }}
+                          title="Pedir este tema"
+                        >
+                          <Plus size={14} /> Pedir
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -954,14 +1263,50 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
                         borderRadius: 14
                       }}
                     >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontWeight: 900, color: '#F59E0B' }}>#{idx + 1}</span>
-                          <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{track.title}</span>
-                          <span className="badge" style={{ fontSize: '0.7rem' }}>❤️ {track.votes} votos</span>
-                        </div>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--theme-secondary, #E8D5B5)', marginTop: 2 }}>
-                          {track.artist} • Pedido por: <strong>{track.requestedBy}</strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontWeight: 900, color: '#F59E0B', width: 28 }}>#{idx + 1}</span>
+
+                        {track.coverUrl ? (
+                          <img
+                            src={track.coverUrl}
+                            alt="Cover"
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 8,
+                              objectFit: 'cover',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                              flexShrink: 0
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 8,
+                            background: 'rgba(255,255,255,0.06)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <Music size={18} color="var(--theme-primary, #D4AF37)" />
+                          </div>
+                        )}
+
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{track.title}</span>
+                            <span className="badge" style={{ fontSize: '0.7rem' }}>❤️ {track.votes} votos</span>
+                            {track.source === 'spotify' && (
+                              <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: 6, background: '#1DB954', color: '#000', fontWeight: 800 }}>
+                                Spotify
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: 'var(--theme-secondary, #E8D5B5)', marginTop: 2 }}>
+                            {track.artist} • Pedido por: <strong>{track.requestedBy}</strong>
+                          </div>
                         </div>
                       </div>
 
@@ -1117,3 +1462,4 @@ export default function JukeboxPage({ slug = 'cumple-de-joaco', onExit }) {
     </div>
   );
 }
+

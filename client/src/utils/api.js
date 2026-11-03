@@ -256,3 +256,11 @@ export async function performDjAction(slug, actionData) {
   if (!res.ok) throw new Error(data.error || 'Error en acción de DJ');
   return data;
 }
+
+export async function searchJukeboxTracks(slug, query) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/jukebox/search?q=${encodeURIComponent(query)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al buscar canciones');
+  return data;
+}
+

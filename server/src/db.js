@@ -417,6 +417,8 @@ export const db = {
       status: 'queued', // queued, playing, played, rejected
       durationSec: item.durationSec || 180,
       previewUrl: item.previewUrl || null,
+      coverUrl: item.coverUrl || null,
+      spotifyUrl: item.spotifyUrl || null,
       isAutoDj: Boolean(item.isAutoDj),
       createdAt: item.createdAt || new Date().toISOString()
     };

@@ -690,19 +690,35 @@ export default function LiveSlideshow({ slug, onExit }) {
           position: 'absolute',
           top: 90,
           right: 30,
-          background: 'rgba(14, 17, 22, 0.9)',
+          background: 'rgba(14, 17, 22, 0.92)',
           backdropFilter: 'blur(16px)',
-          border: '1.5px solid rgba(236, 72, 153, 0.6)',
+          border: '1.5px solid rgba(236, 72, 153, 0.7)',
           borderRadius: 30,
           padding: '8px 18px',
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(236, 72, 153, 0.3)',
+          gap: 12,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(236, 72, 153, 0.35)',
           zIndex: 1015,
           animation: 'fadeIn 0.4s ease-out'
         }}>
-          <span style={{ fontSize: '1.1rem', animation: 'spin 4s linear infinite', display: 'inline-block' }}>💿</span>
+          {currentMusicTrack.coverUrl ? (
+            <img
+              src={currentMusicTrack.coverUrl}
+              alt="Carátula"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '1.5px solid #EC4899',
+                animation: 'spin 5s linear infinite',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: '1.2rem', animation: 'spin 4s linear infinite', display: 'inline-block' }}>💿</span>
+          )}
           <div>
             <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>
               {currentMusicTrack.title} <span style={{ color: '#F472B6', fontWeight: 600 }}>• {currentMusicTrack.artist}</span>
