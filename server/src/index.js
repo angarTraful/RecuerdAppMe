@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import eventsRouter from './routes/events.js';
 import mediaRouter from './routes/media.js';
 import downloadRouter from './routes/download.js';
+import jukeboxRouter from './routes/jukebox.js';
 import { db } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +40,7 @@ app.use('/uploads', express.static(UPLOADS_ROOT));
 // API routes
 app.use('/api/events', eventsRouter);
 app.use('/api/events/:slug/media', mediaRouter);
+app.use('/api/events/:slug/jukebox', jukeboxRouter);
 app.use('/api/download', downloadRouter);
 
 // Health check endpoint

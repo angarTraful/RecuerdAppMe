@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Tv, ShieldCheck, QrCode, Home, Sparkles } from 'lucide-react';
+import { Camera, Tv, ShieldCheck, QrCode, Home, Sparkles, Music } from 'lucide-react';
 
 export default function Navbar({
   event,
@@ -122,6 +122,24 @@ export default function Navbar({
               <span className="hide-mobile">Invitados</span>
             </button>
 
+            <button
+              onClick={() => onTabChange('jukebox')}
+              className="btn btn-secondary"
+              style={{
+                padding: '8px 14px',
+                fontSize: '0.85rem',
+                borderRadius: 10,
+                background: currentTab === 'jukebox' ? 'var(--theme-primary, #D4AF37)' : 'transparent',
+                color: currentTab === 'jukebox' ? '#0E1116' : 'var(--text-main)',
+                border: 'none',
+                fontWeight: currentTab === 'jukebox' ? 700 : 500
+              }}
+              title="Jukebox & Cabina de DJ"
+            >
+              <Music size={16} />
+              <span className="hide-mobile">Música / DJ</span>
+            </button>
+
             {isEventAdmin && (
               <button
                 onClick={() => onTabChange('live')}
@@ -176,34 +194,65 @@ export default function Navbar({
             )}
           </div>
         ) : event ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (onTabChange) {
-                onTabChange('live');
-              } else {
-                window.location.hash = `#/e/${event.slug}/live`;
-              }
-            }}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 14px',
-              borderRadius: 20,
-              background: 'rgba(var(--primary-rgb), 0.16)',
-              border: '1px solid rgba(var(--primary-rgb), 0.4)',
-              color: 'var(--theme-primary, #D4AF37)',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            title="Ver presentación de fotos en vivo"
-          >
-            <Tv size={14} /> Ver en Vivo
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (onTabChange) {
+                  onTabChange('jukebox');
+                } else {
+                  window.location.hash = `#/e/${event.slug}/jukebox`;
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: currentTab === 'jukebox' ? 'var(--theme-primary, #D4AF37)' : 'rgba(236, 72, 153, 0.16)',
+                border: '1px solid rgba(236, 72, 153, 0.4)',
+                color: currentTab === 'jukebox' ? '#0E1116' : '#F472B6',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Pedir canciones y votar música"
+            >
+              <Music size={14} /> Jukebox & DJ
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onTabChange) {
+                  onTabChange('live');
+                } else {
+                  window.location.hash = `#/e/${event.slug}/live`;
+                }
+              }}
+              className="btn btn-secondary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'rgba(var(--primary-rgb), 0.16)',
+                border: '1px solid rgba(var(--primary-rgb), 0.4)',
+                color: 'var(--theme-primary, #D4AF37)',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title="Ver presentación de fotos en vivo"
+            >
+              <Tv size={14} /> Ver en Vivo
+            </button>
+          </div>
         ) : null}
       </div>
     </header>

@@ -34,6 +34,7 @@ export default function LiveSlideshow({ slug, onExit }) {
   const [flashFiestaRemaining, setFlashFiestaRemaining] = useState(8);
   const [liveDedication, setLiveDedication] = useState(null);
   const [dedicationRemaining, setDedicationRemaining] = useState(5);
+  const [currentMusicTrack, setCurrentMusicTrack] = useState(null);
   const [liveReactions, setLiveReactions] = useState([]);
   const [greetingText, setGreetingText] = useState('');
   const [remoteToast, setRemoteToast] = useState(null);
@@ -199,9 +200,16 @@ export default function LiveSlideshow({ slug, onExit }) {
       }
     };
 
+    const handleJukeboxNowPlaying = (payload) => {
+      if (payload && payload.track) {
+        setCurrentMusicTrack(payload.track);
+      }
+    };
+
     socket.on('connect', handleConnect);
     socket.on('new_media', handleNewMedia);
     socket.on('new_dedication', handleNewDedication);
+    socket.on('jukebox_now_playing', handleJukeboxNowPlaying);
     socket.on('live_reaction', handleLiveReaction);
     socket.on('remote_command', handleRemoteCommand);
     socket.on('media_liked', handleMediaLiked);
@@ -211,6 +219,7 @@ export default function LiveSlideshow({ slug, onExit }) {
       socket.off('connect', handleConnect);
       socket.off('new_media', handleNewMedia);
       socket.off('new_dedication', handleNewDedication);
+      socket.off('jukebox_now_playing', handleJukeboxNowPlaying);
       socket.off('live_reaction', handleLiveReaction);
       socket.off('remote_command', handleRemoteCommand);
       socket.off('media_liked', handleMediaLiked);
@@ -671,6 +680,38 @@ export default function LiveSlideshow({ slug, onExit }) {
                 }}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎵 Jukebox Floating Now Playing Pill */}
+      {currentMusicTrack && (
+        <div style={{
+          position: 'absolute',
+          top: 90,
+          right: 30,
+          background: 'rgba(14, 17, 22, 0.9)',
+          backdropFilter: 'blur(16px)',
+          border: '1.5px solid rgba(236, 72, 153, 0.6)',
+          borderRadius: 30,
+          padding: '8px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(236, 72, 153, 0.3)',
+          zIndex: 1015,
+          animation: 'fadeIn 0.4s ease-out'
+        }}>
+          <span style={{ fontSize: '1.1rem', animation: 'spin 4s linear infinite', display: 'inline-block' }}>💿</span>
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#fff' }}>
+              {currentMusicTrack.title} <span style={{ color: '#F472B6', fontWeight: 600 }}>• {currentMusicTrack.artist}</span>
+            </div>
+            {currentMusicTrack.requestedBy && (
+              <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.7)' }}>
+                Pedido por: {currentMusicTrack.requestedBy}
+              </div>
+            )}
           </div>
         </div>
       )}

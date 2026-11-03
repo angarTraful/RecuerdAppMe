@@ -215,3 +215,44 @@ export async function fetchDedications(slug) {
   if (!res.ok) throw new Error(data.error || 'Error al cargar saludos');
   return data.dedications || [];
 }
+
+// Jukebox & DJ Endpoints
+export async function fetchJukebox(slug) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/jukebox`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al cargar Jukebox');
+  return data;
+}
+
+export async function requestJukeboxSong(slug, songData) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/jukebox/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(songData)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al pedir canción');
+  return data;
+}
+
+export async function voteJukeboxSong(slug, trackId, voterId) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/jukebox/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trackId, voterId })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error al votar canción');
+  return data;
+}
+
+export async function performDjAction(slug, actionData) {
+  const res = await fetch(`${API_BASE}/api/events/${slug}/jukebox/dj/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(actionData)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error en acción de DJ');
+  return data;
+}

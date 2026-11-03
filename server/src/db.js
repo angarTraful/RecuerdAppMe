@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { PRESET_PLAYLISTS } from './constants/playlists.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -236,6 +237,10 @@ export const db = {
     data.events = data.events.filter(e => e.slug.toLowerCase() !== slug.toLowerCase());
     data.media = data.media.filter(m => m.eventId !== event.id);
     data.dedications = (data.dedications || []).filter(d => d.slug.toLowerCase() !== slug.toLowerCase());
+    data.jukeboxTracks = (data.jukeboxTracks || []).filter(t => (t.eventSlug || '').toLowerCase() !== slug.toLowerCase());
+    if (data.jukeboxSettings) {
+      delete data.jukeboxSettings[slug.toLowerCase()];
+    }
     writeDb(data);
 
     // Clean up physical uploads folder for this event
@@ -331,5 +336,199 @@ export const db = {
     data.dedications.unshift(newDedication);
     writeDb(data);
     return newDedication;
+  },
+
+  // Jukebox & Auto-DJ
+  getJukeboxSettings(slug) {
+    const data = readDb();
+    if (!data.jukeboxSettings) data.jukeboxSettings = {};
+    const norm = slug.toLowerCase();
+    if (!data.jukeboxSettings[norm]) {
+      data.jukeboxSettings[norm] = {
+        eventSlug: norm,
+        autoDjEnabled: true,
+        currentPlaylistPreset: 'cachengue-fiesta',
+        acceptingRequests: true,
+        isPlaying: false,
+        currentTrackId: null,
+        volume: 0.85
+      };
+      writeDb(data);
+    }
+    return data.jukeboxSettings[norm];
+  },
+
+  updateJukeboxSettings(slug, updates) {
+    const data = readDb();
+    if (!data.jukeboxSettings) data.jukeboxSettings = {};
+    const norm = slug.toLowerCase();
+    data.jukeboxSettings[norm] = {
+      ...(data.jukeboxSettings[norm] || {
+        eventSlug: norm,
+        autoDjEnabled: true,
+        currentPlaylistPreset: 'cachengue-fiesta',
+        acceptingRequests: true,
+        isPlaying: false,
+        currentTrackId: null,
+        volume: 0.85
+      }),
+      ...updates
+    };
+    writeDb(data);
+    return data.jukeboxSettings[norm];
+  },
+
+  getJukeboxTracks(slug) {
+    const data = readDb();
+    const tracks = (data.jukeboxTracks || [])
+      .filter(t => (t.eventSlug || '').toLowerCase() === slug.toLowerCase());
+
+    const playing = tracks.filter(t => t.status === 'playing');
+    const queued = tracks
+      .filter(t => t.status === 'queued')
+      .sort((a, b) => (b.votes || 0) - (a.votes || 0) || new Date(a.createdAt) - new Date(b.createdAt));
+    const played = tracks
+      .filter(t => t.status === 'played')
+      .sort((a, b) => new Date(b.playedAt || b.createdAt) - new Date(a.playedAt || a.createdAt));
+    const rejected = tracks
+      .filter(t => t.status === 'rejected');
+
+    return {
+      playing: playing[0] || null,
+      queued,
+      played,
+      rejected,
+      all: [...playing, ...queued, ...played, ...rejected]
+    };
+  },
+
+  addJukeboxTrack(item) {
+    const data = readDb();
+    if (!data.jukeboxTracks) data.jukeboxTracks = [];
+    const newTrack = {
+      id: item.id || `trk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      eventSlug: (item.slug || item.eventSlug).toLowerCase(),
+      title: (item.title || 'Canción').trim(),
+      artist: (item.artist || 'Artista').trim(),
+      genre: (item.genre || 'General').trim(),
+      requestedBy: (item.requestedBy || 'Invitado anónimo').trim(),
+      votes: 1,
+      voters: [item.requestedBy || 'host'],
+      status: 'queued', // queued, playing, played, rejected
+      durationSec: item.durationSec || 180,
+      previewUrl: item.previewUrl || null,
+      isAutoDj: Boolean(item.isAutoDj),
+      createdAt: item.createdAt || new Date().toISOString()
+    };
+    data.jukeboxTracks.unshift(newTrack);
+    writeDb(data);
+    return newTrack;
+  },
+
+  voteJukeboxTrack(slug, trackId, voterId = 'anon') {
+    const data = readDb();
+    if (!data.jukeboxTracks) data.jukeboxTracks = [];
+    const track = data.jukeboxTracks.find(
+      t => t.id === trackId && (t.eventSlug || '').toLowerCase() === slug.toLowerCase()
+    );
+    if (!track) return null;
+
+    if (!Array.isArray(track.voters)) track.voters = [];
+    const cleanVoter = String(voterId).trim();
+
+    if (track.voters.includes(cleanVoter)) {
+      // Toggle un-vote if already voted (min 1 vote)
+      if (track.votes > 1) {
+        track.votes -= 1;
+        track.voters = track.voters.filter(v => v !== cleanVoter);
+      }
+    } else {
+      track.votes = (track.votes || 0) + 1;
+      track.voters.push(cleanVoter);
+    }
+
+    writeDb(data);
+    return track;
+  },
+
+  updateJukeboxTrackStatus(slug, trackId, status) {
+    const data = readDb();
+    if (!data.jukeboxTracks) data.jukeboxTracks = [];
+    const track = data.jukeboxTracks.find(
+      t => t.id === trackId && (t.eventSlug || '').toLowerCase() === slug.toLowerCase()
+    );
+    if (!track) return null;
+
+    track.status = status;
+    if (status === 'played') {
+      track.playedAt = new Date().toISOString();
+    }
+    if (status === 'playing') {
+      // Mark all other playing tracks as played
+      data.jukeboxTracks.forEach(t => {
+        if (t.id !== trackId && (t.eventSlug || '').toLowerCase() === slug.toLowerCase() && t.status === 'playing') {
+          t.status = 'played';
+          t.playedAt = new Date().toISOString();
+        }
+      });
+      // Update settings currentTrackId
+      if (!data.jukeboxSettings) data.jukeboxSettings = {};
+      const norm = slug.toLowerCase();
+      if (!data.jukeboxSettings[norm]) data.jukeboxSettings[norm] = {};
+      data.jukeboxSettings[norm].currentTrackId = track.id;
+      data.jukeboxSettings[norm].isPlaying = true;
+    }
+
+    writeDb(data);
+    return track;
+  },
+
+  getNextAutoDjTrack(slug) {
+    const norm = slug.toLowerCase();
+    const tracksData = this.getJukeboxTracks(norm);
+    const settings = this.getJukeboxSettings(norm);
+
+    // 1. If there's a queued song requested by guests, play the most voted!
+    if (tracksData.queued && tracksData.queued.length > 0) {
+      const nextTrack = tracksData.queued[0];
+      return this.updateJukeboxTrackStatus(norm, nextTrack.id, 'playing');
+    }
+
+    // 2. Queue is empty! Pick next song from active preset playlist that hasn't played yet
+    const presetKey = settings.currentPlaylistPreset || 'cachengue-fiesta';
+    const preset = PRESET_PLAYLISTS[presetKey] || PRESET_PLAYLISTS['cachengue-fiesta'];
+    const playedTitles = new Set(tracksData.played.map(t => `${t.title.toLowerCase()}-${t.artist.toLowerCase()}`));
+
+    // Find first song from preset not yet played
+    let candidate = preset.tracks.find(t => !playedTitles.has(`${t.title.toLowerCase()}-${t.artist.toLowerCase()}`));
+    if (!candidate) {
+      // If all have played, pick random
+      candidate = preset.tracks[Math.floor(Math.random() * preset.tracks.length)];
+    }
+
+    // Add candidate as auto-DJ track and play it
+    const newAutoTrack = this.addJukeboxTrack({
+      slug: norm,
+      title: candidate.title,
+      artist: candidate.artist,
+      genre: candidate.genre,
+      requestedBy: '🤖 Auto-DJ',
+      durationSec: candidate.durationSec,
+      isAutoDj: true
+    });
+
+    return this.updateJukeboxTrackStatus(norm, newAutoTrack.id, 'playing');
+  },
+
+  deleteJukeboxTrack(slug, trackId) {
+    const data = readDb();
+    if (!data.jukeboxTracks) data.jukeboxTracks = [];
+    const index = data.jukeboxTracks.findIndex(
+      t => t.id === trackId && (t.eventSlug || '').toLowerCase() === slug.toLowerCase()
+    );
+    if (index === -1) return null;
+    const removed = data.jukeboxTracks.splice(index, 1)[0];
+    writeDb(data);
+    return removed;
   }
 };

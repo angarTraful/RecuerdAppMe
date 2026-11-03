@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import GuestUpload from './pages/GuestUpload';
 import LiveSlideshow from './pages/LiveSlideshow';
 import HostDashboard from './pages/HostDashboard';
+import JukeboxPage from './pages/JukeboxPage';
 import { fetchEvent } from './utils/api';
 
 export default function App() {
@@ -19,13 +20,15 @@ export default function App() {
     const hash = window.location.hash.replace(/^#\/?/, '');
     if (!hash) return { page: 'home' };
 
-    // Format: e/:slug, e/:slug/live, e/:slug/admin
+    // Format: e/:slug, e/:slug/live, e/:slug/admin, e/:slug/jukebox
     const parts = hash.split('/');
+    if (parts[0] === 'jukebox') return { page: 'jukebox', slug: 'cumple-de-joaco' };
     if (parts[0] === 'e' && parts[1]) {
       const slug = parts[1];
       const sub = parts[2];
       if (sub === 'live') return { page: 'live', slug };
       if (sub === 'admin') return { page: 'admin', slug };
+      if (sub === 'jukebox') return { page: 'jukebox', slug };
       return { page: 'guest', slug };
     }
 
@@ -60,6 +63,7 @@ export default function App() {
     if (tab === 'guest') navigateTo(`#/e/${currentRoute.slug}`);
     if (tab === 'live') navigateTo(`#/e/${currentRoute.slug}/live`);
     if (tab === 'admin') navigateTo(`#/e/${currentRoute.slug}/admin`);
+    if (tab === 'jukebox') navigateTo(`#/e/${currentRoute.slug}/jukebox`);
   };
 
   const isEventAdminAuthenticated = Boolean(
@@ -115,6 +119,13 @@ export default function App() {
               onOpenQr={() => setShowQrModal(true)}
               onOpenLive={() => navigateTo(`#/e/${currentRoute.slug}/live`)}
               onAuthChange={() => setAuthVersion((v) => v + 1)}
+            />
+          )}
+
+          {currentRoute.page === 'jukebox' && (
+            <JukeboxPage
+              slug={currentRoute.slug || 'cumple-de-joaco'}
+              onExit={() => navigateTo(currentRoute.slug ? `#/e/${currentRoute.slug}` : '#/')}
             />
           )}
         </div>
